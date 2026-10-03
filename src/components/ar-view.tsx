@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import type { ComponentCard as Card, Reading, Role } from "@/lib/types";
 import {
@@ -44,7 +44,7 @@ const LOST_AFTER_MS = 1200;
 const GUTTER = 12;
 const PANEL_W = 300; // natural CSS px; the homography scales it to the scene
 const PANEL_GAP_U = 0.14; // marker units between panels
-const SIDE_GAP_U = 0.45; // marker units between the code and the panel column
+const SIDE_GAP_U = 0.4; // marker units between the code and the panel column
 const MIN_READABILITY = 0.55;
 const ROLE_KEY = "machine-memory:role";
 const ROLE_EVENT = "machine-memory:role-updated";
@@ -142,9 +142,14 @@ export default function ArView() {
 
   // Panel elements are kept in state (set from callback refs) so the
   // measuring effect can re-observe when a panel mounts or unmounts.
+  // The callbacks must be stable: a new callback ref each render makes React
+  // detach and reattach it, which would set state every render and loop.
   const [panelEls, setPanelEls] = useState<Record<PanelId, HTMLDivElement | null>>({ head: null, next: null, memory: null });
-  const bindPanel = (id: PanelId) => (el: HTMLDivElement | null) =>
-    setPanelEls((prev) => (prev[id] === el ? prev : { ...prev, [id]: el }));
+  const bindPanel = useMemo(() => {
+    const make = (id: PanelId) => (el: HTMLDivElement | null) =>
+      setPanelEls((prev) => (prev[id] === el ? prev : { ...prev, [id]: el }));
+    return { head: make("head"), next: make("next"), memory: make("memory") } as Record<PanelId, (el: HTMLDivElement | null) => void>;
+  }, []);
 
   // Container size, so overlay math survives rotation.
   useEffect(() => {
@@ -332,47 +337,68 @@ export default function ArView() {
     ring = { c, r: Math.max(side * 0.8, 36) };
 
     const H = homography(rectQuad(0, 0, 1, 1), q);
-    const wantPx = Math.min(Math.max(side * 2.6, 230), Math.min(380, size.w - GUTTER * 2));
-    const wU = wantPx / side;
-    const scale = wU / PANEL_W; // marker units per CSS px of panel
-    const hU: Record<PanelId, number> = {
-      head: heights.head * scale,
-      next: heights.next * scale,
-      memory: heights.memory * scale,
-    };
-    const totalU = hU.head + hU.next + hU.memory + PANEL_GAP_U * 2;
-    const onRight = c.x <= size.w / 2;
-    const x0 = onRight ? 1 + SIDE_GAP_U : -SIDE_GAP_U - wU;
-    let y = 0.5 - totalU / 2;
+    const TOP_BAR = 64;
+    const ys = q.map((p) => p.y);
+    const minY = Math.min(...ys), maxY = Math.max(...ys);
+    const sumH = heights.head + heights.next + heights.memory; // natural px
+    const gapPx = PANEL_GAP_U * side * 2;
+    // On-screen px per natural panel px. Start from a comfortable size, then
+    // shrink to the room available in the chosen direction, never below the
+    // point where the type stops being readable.
+    const MIN_SCALE = 230 / PANEL_W;
+    const idealScale = Math.min(Math.max(side * 2.6, 230), Math.min(380, size.w - GUTTER * 2)) / PANEL_W;
+    const fitScale = (roomPx: number) => Math.min(idealScale, (roomPx - gapPx) / sumH);
+    // Candidate placements, in order of preference: below, above, right, left.
+    // Each gives the column's scale and its origin in marker units.
+    const candidates: Array<{ scale: number; origin: (wU: number, totalU: number) => [number, number] }> = [
+      { scale: fitScale(size.h - GUTTER - (maxY + SIDE_GAP_U * side)), origin: (wU) => [0.5 - wU / 2, 1 + SIDE_GAP_U] },
+      { scale: fitScale(minY - SIDE_GAP_U * side - TOP_BAR), origin: (wU, totalU) => [0.5 - wU / 2, -SIDE_GAP_U - totalU] },
+      { scale: idealScale, origin: (wU, totalU) => [1 + SIDE_GAP_U, 0.5 - totalU / 2] },
+      { scale: idealScale, origin: (wU, totalU) => [-SIDE_GAP_U - wU, 0.5 - totalU / 2] },
+    ];
 
     if (H) {
-      const quads: Partial<Record<PanelId, Quad>> = {};
-      let ok = true;
-      for (const id of PANELS) {
-        const mq = rectQuad(x0, y, wU, hU[id]);
-        const sq = mq.map((p) => apply(H, p)) as Quad;
-        if (!inside(sq, size.w, size.h, 6) || readability(sq) < MIN_READABILITY) ok = false;
-        quads[id] = sq;
-        y += hU[id] + PANEL_GAP_U;
-      }
-      if (ok) {
+      for (const cand of candidates) {
+        if (!(cand.scale >= MIN_SCALE)) continue;
+        const wU = (cand.scale * PANEL_W) / side;
+        const unitsPerPx = wU / PANEL_W;
+        const hU: Record<PanelId, number> = {
+          head: heights.head * unitsPerPx,
+          next: heights.next * unitsPerPx,
+          memory: heights.memory * unitsPerPx,
+        };
+        const totalU = hU.head + hU.next + hU.memory + PANEL_GAP_U * 2;
+        const [x0, y0] = cand.origin(wU, totalU);
+        const quads: Partial<Record<PanelId, Quad>> = {};
         const transforms: Partial<Record<PanelId, string>> = {};
+        let ok = true;
+        let y = y0;
         for (const id of PANELS) {
-          const t = matrix3d(PANEL_W, heights[id], quads[id]!);
-          if (!t) ok = false;
-          else transforms[id] = t;
+          const sq = rectQuad(x0, y, wU, hU[id]).map((p) => apply(H, p)) as Quad;
+          const clearOfBar = sq.every((p) => p.y >= TOP_BAR);
+          if (!inside(sq, size.w, size.h, 6) || !clearOfBar || readability(sq) < MIN_READABILITY) {
+            ok = false;
+            break;
+          }
+          const t = matrix3d(PANEL_W, heights[id], sq);
+          if (!t) {
+            ok = false;
+            break;
+          }
+          quads[id] = sq;
+          transforms[id] = t;
+          y += hU[id] + PANEL_GAP_U;
         }
         if (ok) {
           mode = "world";
           panelTransforms = transforms;
           panelQuads = quads;
+          break;
         }
       }
     }
 
     if (mode === "flat") {
-      const ys = q.map((p) => p.y);
-      const minY = Math.min(...ys), maxY = Math.max(...ys);
       flatX = Math.min(Math.max(c.x - flatW / 2, GUTTER), size.w - flatW - GUTTER);
       if (maxY + 20 + flatH <= size.h - GUTTER) {
         flatY = maxY + 20;
@@ -400,9 +426,9 @@ export default function ArView() {
 
   const panelNodes = (
     <>
-      <Panel id="head" setRef={bindPanel("head")} state={cardState} partId={anchor?.id ?? ""} lost={lost} />
-      <Panel id="next" setRef={bindPanel("next")} state={cardState} partId={anchor?.id ?? ""} lost={lost} />
-      <Panel id="memory" setRef={bindPanel("memory")} state={cardState} partId={anchor?.id ?? ""} lost={lost} />
+      <Panel id="head" setRef={bindPanel.head} state={cardState} partId={anchor?.id ?? ""} lost={lost} />
+      <Panel id="next" setRef={bindPanel.next} state={cardState} partId={anchor?.id ?? ""} lost={lost} />
+      <Panel id="memory" setRef={bindPanel.memory} state={cardState} partId={anchor?.id ?? ""} lost={lost} />
     </>
   );
 
@@ -509,7 +535,7 @@ export default function ArView() {
               className="absolute left-0 top-0 origin-top-left transition-transform duration-100 ease-linear will-change-transform"
               style={{ width: PANEL_W, transform: panelTransforms[id] }}
             >
-              <Panel id={id} setRef={bindPanel(id)} state={cardState} partId={anchor.id} lost={lost} />
+              <Panel id={id} setRef={bindPanel[id]} state={cardState} partId={anchor.id} lost={lost} />
             </div>
           ))}
         </div>
@@ -552,8 +578,11 @@ function Leader({ from, to }: { from: Pt; to: Pt }) {
 }
 
 /** Frosted dark glass: body tint, top sheen, hairline edge. No backdrop-filter, it fights matrix3d on iOS. */
-const glass =
-  "rounded-2xl border border-white/15 bg-[linear-gradient(160deg,rgba(255,255,255,0.16),rgba(255,255,255,0.03)_38%,rgba(0,0,0,0)_60%),rgba(12,16,24,0.78)] text-white shadow-[0_8px_30px_rgba(0,0,0,0.45)]";
+const glass = "rounded-2xl border border-white/15 text-white shadow-[0_8px_30px_rgba(0,0,0,0.45)]";
+const glassStyle: React.CSSProperties = {
+  background:
+    "linear-gradient(160deg, rgba(255,255,255,0.16), rgba(255,255,255,0.03) 38%, rgba(0,0,0,0) 60%), rgba(12,16,24,0.82)",
+};
 
 function Panel({
   id,
@@ -576,7 +605,7 @@ function Panel({
   if (state.kind !== "ready") {
     if (id !== "head") return <div ref={setRef} className="h-0" aria-hidden="true" />;
     return (
-      <div ref={setRef} className={`${glass} p-4`} aria-busy={state.kind === "loading"}>
+      <div ref={setRef} style={glassStyle} className={`${glass} p-4`} aria-busy={state.kind === "loading"}>
         {label(state.kind === "loading" ? `Found ${partId}` : partId)}
         <p className="mt-1 text-lg font-semibold leading-tight">
           {state.kind === "loading" && "Reading the machine’s memory…"}
@@ -596,7 +625,7 @@ function Panel({
 
   if (id === "head") {
     return (
-      <div ref={setRef} className={`${glass} overflow-hidden`}>
+      <div ref={setRef} style={glassStyle} className={`${glass} overflow-hidden`}>
         <div className={`h-1 w-full ${stripe[status]}`} />
         <div className="p-3.5">
           <div className="flex items-start justify-between gap-3">
@@ -625,17 +654,17 @@ function Panel({
 
   if (id === "next") {
     return (
-      <div ref={setRef} className={`${glass} p-3.5`}>
+      <div ref={setRef} style={glassStyle} className={`${glass} p-3.5`}>
         {label("Next step", "text-amber-200/90")}
-        <p className="mt-1 line-clamp-3 text-[17px] font-semibold leading-snug">{card.next_step}</p>
+        <p className="mt-1 line-clamp-3 text-[16px] font-semibold leading-snug">{card.next_step}</p>
       </div>
     );
   }
 
   return (
-    <div ref={setRef} className={`${glass} p-3.5`}>
+    <div ref={setRef} style={glassStyle} className={`${glass} p-3.5`}>
       {label("What this part remembers")}
-      <p className="mt-1 line-clamp-3 text-[14px] leading-snug text-white/85">{card.summary}</p>
+      <p className="mt-1 line-clamp-2 text-[14px] leading-snug text-white/85">{card.summary}</p>
       <Link
         href={href}
         className="mt-3 flex min-h-11 items-center justify-center rounded-full bg-white px-4 text-sm font-medium text-black hover:bg-neutral-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
