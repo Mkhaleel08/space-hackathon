@@ -5,7 +5,12 @@ import { operatorGate } from "@/lib/server/operator";
 import { addComponent, TagError } from "@/lib/server/tags";
 
 export async function GET() {
-  return Response.json(await listComponents());
+  try {
+    return Response.json(await listComponents());
+  } catch (cause) {
+    console.error("[components]", cause);
+    return Response.json({ error: "Could not load parts." }, { status: 500 });
+  }
 }
 
 /** Add a part under an asset. It gets the next free AprilTag id. */

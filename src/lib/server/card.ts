@@ -4,6 +4,7 @@ import type {
   Component,
   ComponentCard,
   MachineEvent,
+  Reading,
   Role,
 } from "@/lib/types";
 import {
@@ -11,13 +12,15 @@ import {
   getCachedCardText,
   getComponent,
   getRecentEvents,
+  PROMPT_EVENTS,
+  RECENT_EVENTS,
   saveCardText,
 } from "./data";
 import { writeCard } from "./llm";
 import { readingsFor } from "./readings";
 
 // Bump when the card prompt changes so old cached wording is not reused.
-const PROMPT_VERSION = "v1";
+const PROMPT_VERSION = "v2";
 
 export async function buildCard(
   componentId: string,
@@ -26,13 +29,15 @@ export async function buildCard(
   const component = await getComponent(componentId);
   if (!component) return null;
 
-  const [asset, recent_events] = await Promise.all([
+  // One read: the model gets the long history, the API returns the newest few.
+  const [asset, history] = await Promise.all([
     getAsset(component.asset_id),
-    getRecentEvents(componentId),
+    getRecentEvents(componentId, PROMPT_EVENTS),
   ]);
   if (!asset) return null;
 
-  const text = await cardText(component, asset, recent_events, role);
+  const readings = readingsFor(componentId);
+  const text = await cardText(component, asset, history, readings, role);
 
   return {
     component,
@@ -40,26 +45,28 @@ export async function buildCard(
     role,
     summary: text.summary,
     next_step: text.next_step,
-    readings: readingsFor(componentId),
-    recent_events,
+    readings,
+    recent_events: history.slice(0, RECENT_EVENTS),
   };
 }
 
-// The LLM text is cached per component, role, and history content, so the
-// same history always shows the same wording and it only regenerates when a
-// note is added. The key hashes event content, not event ids, so the wording
-// also survives `npm run seed` (which assigns new ids).
+// The LLM text is cached per component, role, and what the model was shown
+// (history content and readings), so the same inputs always show the same
+// wording and it only regenerates when a note is added. The key hashes event
+// content, not event ids, so the wording also survives `npm run seed` (which
+// assigns new ids).
 async function cardText(
   component: Component,
   asset: Asset,
   events: MachineEvent[],
+  readings: Reading[],
   role: Role,
 ): Promise<{ summary: string; next_step: string }> {
-  const key = cacheKey(component, asset, events, role);
+  const key = cacheKey(component, asset, events, readings, role);
   const cached = await getCachedCardText(key);
   if (cached) return cached;
 
-  const written = await writeCard(component, asset, events, role);
+  const written = await writeCard(component, asset, events, readings, role);
   if (written) {
     await saveCardText(key, written);
     return written;
@@ -72,6 +79,7 @@ function cacheKey(
   component: Component,
   asset: Asset,
   events: MachineEvent[],
+  readings: Reading[],
   role: Role,
 ): string {
   const content = JSON.stringify([
@@ -81,6 +89,7 @@ function cacheKey(
     asset.hours,
     component.name,
     component.location,
+    readings.map((r) => [r.label, r.value, r.status]),
     events.map((e) => [
       e.type,
       e.summary,
@@ -103,15 +112,17 @@ function placeholderText(
   const lastLine = last
     ? `Last ${last.type} on ${last.created_at.slice(0, 10)}: ${last.summary}.`
     : "No history recorded yet.";
-  const open = events.find((e) => e.type === "fault");
+  // Events are newest first. A fault is open only if no repair came after it.
+  const latest = events.find((e) => e.type === "fault" || e.type === "repair");
+  const open = latest?.type === "fault" ? latest : undefined;
 
   if (role === "operator") {
     return {
       summary: open
         ? `${name} has a reported problem: ${open.summary}. ${lastLine}`
-        : `${name} is running normally. ${lastLine}`,
+        : `${name} has no open faults. ${lastLine}`,
       next_step: open
-        ? "Avoid heavy loads on this part and tell maintenance before your next shift."
+        ? "Go easy on this part and tell maintenance before your next shift."
         : "Keep an eye on it during your shift. Call maintenance if you notice leaks, new noises, or sluggish response.",
     };
   }

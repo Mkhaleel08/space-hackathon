@@ -16,3 +16,15 @@ and LLM calls, so keys stay on the server.
 - `dashboard.ts` — `getDashboard()` assembles `DashboardData` for `/dashboard`.
 - `tags.ts` — AprilTag assignment: `tagsOrFallback()`, `assignTag(id)`, `addComponent(body)`.
 - `operator.ts` — `operatorGate(request)`: the shared `OPERATOR_PIN` check for deletes and new parts.
+
+## Card prompt rules (llm.ts, card.ts)
+
+- The model sees the last 40 events and the simulated readings; the API still
+  returns the newest 10 events.
+- Field text (notes, event summaries) is wrapped in `<history>` / `<note>` tags
+  and declared data, so a note cannot give the model instructions.
+- LLM calls time out after 12 s; the card then uses placeholder text and a note
+  is filed as type `note` with its own text as the summary.
+- `summary` and `next_step` are cut to the last full sentence under 280 chars.
+- Changing the prompt or `readings.ts` regenerates wording. Bump
+  `PROMPT_VERSION` in `card.ts` when the prompt changes.
