@@ -4,11 +4,13 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft } from "./icons";
 import s from "./workspace.module.css";
 import Link from "next/link";
-import type { ComponentCard as Card, MachineEvent, Role } from "@/lib/types";
+import type { ComponentCard as Card, MachineEvent, NewNoteRequest, NewNoteResponse, Role } from "@/lib/types";
 import ComponentCard from "./component-card";
 import NoteForm from "./note-form";
+import Checklist, { checklistNoteText } from "./checklist";
 import { btnPrimary, h1, textLink } from "./ui";
 
+const EMPTY_SET: Set<string> = new Set();
 type Result = { kind: "loading" } | { kind: "ready"; card: Card } | { kind: "missing" } | { kind: "error" };
 
 export default function ComponentCardLoader({ id, role, roleControl }: { id: string; role: Role; roleControl?: ReactNode }) {
@@ -19,6 +21,32 @@ export default function ComponentCardLoader({ id, role, roleControl }: { id: str
 
   const [savedEventId, setSavedEventId] = useState<string>();
   const savedEvent = useRef<MachineEvent | null>(null);
+  // Checked steps are keyed by part id so a new part starts clean without an effect.
+  const [checkedFor, setCheckedFor] = useState<{ id: string; set: Set<string> }>({ id, set: new Set() });
+  const checked = checkedFor.id === id ? checkedFor.set : EMPTY_SET;
+  const setChecked = (set: Set<string>) => setCheckedFor({ id, set });
+  const [filing, setFiling] = useState(false);
+  const [filingError, setFilingError] = useState("");
+
+  async function finishChecklist(card: Card) {
+    if (filing || checked.size === 0) return;
+    setFiling(true); setFilingError("");
+    try {
+      const body: NewNoteRequest = { text: checklistNoteText(card.checklist, checked), author_role: role };
+      const response = await fetch(`/api/components/${encodeURIComponent(id)}/notes`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+      });
+      if (!response.ok) throw new Error(`notes ${response.status}`);
+      const data: NewNoteResponse = await response.json();
+      if (!data.event?.id) throw new Error("Save not confirmed");
+      setChecked(new Set());
+      noteSaved(data.event);
+    } catch {
+      setFilingError("Couldn’t file the inspection. Check the connection and try again; your checks are still here.");
+    } finally {
+      setFiling(false);
+    }
+  }
 
   useEffect(() => {
     if (!savedEventId) return;
@@ -92,7 +120,23 @@ export default function ComponentCardLoader({ id, role, roleControl }: { id: str
         {refreshing && <p className="flex items-center gap-2"><span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-accent" />Re-reading the history and next step…</p>}
         {refreshError && <p role="alert" className="text-alert">Couldn’t refresh the card. The details below may be out of date. <button type="button" onClick={refreshCard} className={`${textLink} text-foreground`}>Refresh card</button></p>}
       </div>
-      <ComponentCard card={result.card} savedEventId={savedEventId} noteForm={<NoteForm id={id} role={role} onSaved={noteSaved} onCheckHistory={refreshCard} />} />
+      <ComponentCard
+        card={result.card}
+        savedEventId={savedEventId}
+        noteForm={<NoteForm id={id} role={role} onSaved={noteSaved} onCheckHistory={refreshCard} />}
+        checklist={
+          <>
+            <Checklist
+              items={result.card.checklist}
+              checked={checked}
+              onToggle={(itemId) => { const next = new Set(checked); if (next.has(itemId)) next.delete(itemId); else next.add(itemId); setChecked(next); }}
+              onFinish={() => void finishChecklist(result.card)}
+              saving={filing}
+            />
+            {filingError && <div role="alert" className="mt-2 text-sm text-alert">{filingError}</div>}
+          </>
+        }
+      />
     </>
   );
   if (result.kind === "loading") return (
