@@ -33,3 +33,13 @@ part's card pins itself to the detected code with a leader line. It is still
 QR-anchored. No markerless recognition, no WebXR. The AR row above stands as
 written; this is the "pinned cards" half of it, done over live video instead
 of on a separate page. Falls back to the plain scanner at `/scan`.
+
+## Addendum, Oct 3 1:40 AM (Mehran, agreed with the team)
+
+Live view markers switch from QR codes to **AprilTags (36h11)**. Same live view,
+same plane math; the detector reads tags at steep angles and small sizes where
+QR failed, and a tag carries only a number, so the lookup is in
+`src/lib/markers.ts`. The camera opens on page load and every panel is a tap
+target that expands in place, so there are no buttons off the camera view.
+QR labels still work through a fallback decoder. Still no markerless
+recognition, no hand gestures, no WebXR. Print tags on matte paper.

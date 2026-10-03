@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import type { ComponentCard as Card, Reading, Role } from "@/lib/types";
+import type { ArucoDetector } from "js-aruco2";
+import { componentForTag, DICTIONARY } from "@/lib/markers";
 import {
   apply,
   center,
@@ -25,8 +27,9 @@ import {
  * a ring on the code. If the plane is viewed too obliquely or the panels would
  * leave the screen, the same panels fall back to a flat stack near the code.
  *
- * Decoding runs on downscaled frames with jsQR because it reports corner
- * points; html5-qrcode does not.
+ * Recognition is AprilTag (36h11) via js-aruco2, which reads tags at steep
+ * angles and small sizes. jsQR runs as a fallback so the older QR labels
+ * keep working. Both report corner points, which the plane math needs.
  */
 
 type Anchor = { id: string; quad: Quad; seenAt: number };
@@ -46,6 +49,11 @@ const PANEL_W = 300; // natural CSS px; the homography scales it to the scene
 const PANEL_GAP_U = 0.14; // marker units between panels
 const SIDE_GAP_U = 0.4; // marker units between the code and the panel column
 const MIN_READABILITY = 0.55;
+const MIN_SCALE = 0.72; // on-screen px per natural px; below this the type is too small
+// How much true perspective the panels keep. 1 = lie exactly on the plane
+// (text smears far from the tag), 0 = flat rotate-and-scale. A blend keeps
+// the tilt cue while staying legible.
+const PERSPECTIVE = 0.4;
 const ROLE_KEY = "machine-memory:role";
 const ROLE_EVENT = "machine-memory:role-updated";
 const PANELS: PanelId[] = ["head", "next", "memory"];
@@ -111,6 +119,44 @@ function toScreen(p: Pt, vw: number, vh: number, cw: number, ch: number): Pt {
   return { x: p.x * s + (cw - vw * s) / 2, y: p.y * s + (ch - vh * s) / 2 };
 }
 
+async function loadDetector(): Promise<ArucoDetector> {
+  const mod = await import("js-aruco2");
+  await import("js-aruco2/src/dictionaries/apriltag_36h11.js");
+  return new mod.AR.Detector({ dictionaryName: DICTIONARY, maxHammingDistance: 3 });
+}
+
+/**
+ * Detectors return corners in the marker's own frame, so a label taped on
+ * sideways would put "below" off to one side. Re-order clockwise starting
+ * from the screen top-left so panels always hang below the label on screen.
+ */
+function screenQuad(pts: Pt[]): Quad {
+  let start = 0;
+  for (let i = 1; i < 4; i++) if (pts[i].x + pts[i].y < pts[start].x + pts[start].y) start = i;
+  const q = [0, 1, 2, 3].map((i) => pts[(start + i) % 4]) as Quad;
+  // Ensure clockwise in screen space (y down): signed area must be positive.
+  const area = q.reduce((acc, p, i) => {
+    const n = q[(i + 1) % 4];
+    return acc + (p.x * n.y - n.x * p.y);
+  }, 0);
+  return area < 0 ? ([q[0], q[3], q[2], q[1]] as Quad) : q;
+}
+
+/** Place marker-space points: a blend of the true plane homography and a
+ * similarity transform (rotate + scale about the tag), see PERSPECTIVE. */
+function makePlacer(H: number[], q: Quad) {
+  const c = center(q);
+  const side = meanSide(q);
+  const ang = Math.atan2(q[1].y - q[0].y, q[1].x - q[0].x);
+  const cos = Math.cos(ang), sin = Math.sin(ang);
+  return (p: Pt): Pt => {
+    const full = apply(H, p);
+    const lx = (p.x - 0.5) * side, ly = (p.y - 0.5) * side;
+    const flat = { x: c.x + lx * cos - ly * sin, y: c.y + lx * sin + ly * cos };
+    return { x: flat.x + (full.x - flat.x) * PERSPECTIVE, y: flat.y + (full.y - flat.y) * PERSPECTIVE };
+  };
+}
+
 export default function ArView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -121,6 +167,9 @@ export default function ArView() {
   const smoothRef = useRef<Quad | null>(null);
   const cacheRef = useRef(new Map<string, Card>());
   const jsqrRef = useRef<typeof import("jsqr").default | null>(null);
+  const detectorRef = useRef<ArucoDetector | null>(null);
+  const tickCountRef = useRef(0);
+  const startedRef = useRef(false);
 
   const [view, setView] = useState<ViewState>("idle");
   const [error, setError] = useState("");
@@ -130,6 +179,16 @@ export default function ArView() {
   const [cardState, setCardState] = useState<CardState>({ kind: "loading" });
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [heights, setHeights] = useState<Record<PanelId, number>>({ head: 96, next: 110, memory: 150 });
+  // Expanded panels are remembered per pinned part, so moving to another
+  // label starts collapsed without an effect to reset anything.
+  const collapsed: Record<PanelId, boolean> = { head: false, next: false, memory: false };
+  const [expandedFor, setExpandedFor] = useState<{ id: string } & Record<PanelId, boolean>>({ id: "", ...collapsed });
+  const expanded: Record<PanelId, boolean> = expandedFor.id === (anchor?.id ?? "") ? expandedFor : collapsed;
+  const togglePanel = (id: PanelId) =>
+    setExpandedFor((prev) => {
+      const base = prev.id === (anchor?.id ?? "") ? prev : { id: anchor?.id ?? "", ...collapsed };
+      return { ...base, [id]: !base[id] };
+    });
 
   function selectRole(next: Role) {
     try {
@@ -194,6 +253,14 @@ export default function ArView() {
     };
   }, []);
 
+  // Open the camera as soon as the page loads. Browsers that insist on a tap
+  // reject this, and the Start button below takes over.
+  useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    void start();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch the card whenever the pinned part or the role changes.
   useEffect(() => {
     if (!anchor) return;
@@ -242,14 +309,16 @@ export default function ArView() {
     setError("");
     setView("opening");
     try {
-      const [{ default: jsQR }, stream] = await Promise.all([
+      const [{ default: jsQR }, detector, stream] = await Promise.all([
         import("jsqr"),
+        loadDetector(),
         navigator.mediaDevices.getUserMedia({
           audio: false,
           video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
         }),
       ]);
       jsqrRef.current = jsQR;
+      detectorRef.current = detector;
       streamRef.current = stream;
       const video = videoRef.current;
       if (!video) throw new Error("no video element");
@@ -287,16 +356,36 @@ export default function ArView() {
     if (!ctx) return;
     ctx.drawImage(video, 0, 0, cw, ch);
     const img = ctx.getImageData(0, 0, cw, ch);
-    const code = jsQR(img.data, cw, ch, { inversionAttempts: "dontInvert" });
-    const id = code?.data.trim();
-    if (!code || !id) return;
+    tickCountRef.current += 1;
+
+    // AprilTag first. Fall back to QR every third frame so old labels still work.
+    let id: string | null = null;
+    let found: Pt[] | null = null;
+    const markers = detectorRef.current?.detect(img) ?? [];
+    for (const m of markers) {
+      const cid = componentForTag(m.id);
+      if (cid && m.corners.length === 4) {
+        id = cid;
+        found = m.corners;
+        break;
+      }
+    }
+    if (!found && tickCountRef.current % 3 === 0) {
+      const code = jsQR(img.data, cw, ch, { inversionAttempts: "dontInvert" });
+      const text = code?.data.trim();
+      if (code && text) {
+        const { topLeftCorner: a, topRightCorner: b, bottomRightCorner: c, bottomLeftCorner: d } = code.location;
+        id = text;
+        found = [a, b, c, d];
+      }
+    }
+    if (!id || !found) return;
 
     const el = containerRef.current;
     if (!el) return;
-    const { topLeftCorner: a, topRightCorner: b, bottomRightCorner: c, bottomLeftCorner: d } = code.location;
-    const raw = [a, b, c, d].map((p) =>
-      toScreen({ x: p.x / k, y: p.y / k }, vw, vh, el.clientWidth, el.clientHeight),
-    ) as Quad;
+    const raw = screenQuad(
+      found.map((p) => toScreen({ x: p.x / k, y: p.y / k }, vw, vh, el.clientWidth, el.clientHeight)),
+    );
     // Light smoothing so the panels do not jitter with hand shake.
     const prev = smoothRef.current;
     const quad = prev
@@ -307,7 +396,7 @@ export default function ArView() {
     setAnchor((current) => {
       if (!current || current.id !== id) {
         smoothRef.current = raw;
-        if ("vibrate" in navigator) navigator.vibrate?.(25);
+        if ("vibrate" in navigator && navigator.userActivation?.hasBeenActive) navigator.vibrate?.(25);
         return { id, quad: raw, seenAt: performance.now() };
       }
       return { id, quad, seenAt: performance.now() };
@@ -327,7 +416,7 @@ export default function ArView() {
   let flatX = GUTTER;
   let flatY = size.h - GUTTER;
   let flatBelow = true;
-  const flatW = Math.min(size.w - GUTTER * 2, 360);
+  const flatW = Math.min(size.w - GUTTER * 2, PANEL_W); // same width as world mode, so heights match
   const flatH = heights.head + heights.next + heights.memory + 16;
 
   if (tracked && anchor) {
@@ -345,7 +434,6 @@ export default function ArView() {
     // On-screen px per natural panel px. Start from a comfortable size, then
     // shrink to the room available in the chosen direction, never below the
     // point where the type stops being readable.
-    const MIN_SCALE = 230 / PANEL_W;
     const idealScale = Math.min(Math.max(side * 2.6, 230), Math.min(380, size.w - GUTTER * 2)) / PANEL_W;
     const fitScale = (roomPx: number) => Math.min(idealScale, (roomPx - gapPx) / sumH);
     // Candidate placements, in order of preference: below, above, right, left.
@@ -358,7 +446,11 @@ export default function ArView() {
     ];
 
     if (H) {
-      for (const cand of candidates) {
+      const place = makePlacer(H, q);
+      // Perspective makes lower panels taller than the flat estimate, so each
+      // placement may step its scale down a few notches before giving up.
+      const attempts = candidates.flatMap((cand) => [1, 0.92, 0.85, 0.78, 0.72].map((f) => ({ ...cand, scale: cand.scale * f })));
+      for (const cand of attempts) {
         if (!(cand.scale >= MIN_SCALE)) continue;
         const wU = (cand.scale * PANEL_W) / side;
         const unitsPerPx = wU / PANEL_W;
@@ -374,7 +466,7 @@ export default function ArView() {
         let ok = true;
         let y = y0;
         for (const id of PANELS) {
-          const sq = rectQuad(x0, y, wU, hU[id]).map((p) => apply(H, p)) as Quad;
+          const sq = rectQuad(x0, y, wU, hU[id]).map(place) as Quad;
           const clearOfBar = sq.every((p) => p.y >= TOP_BAR);
           if (!inside(sq, size.w, size.h, 6) || !clearOfBar || readability(sq) < MIN_READABILITY) {
             ok = false;
@@ -426,9 +518,9 @@ export default function ArView() {
 
   const panelNodes = (
     <>
-      <Panel id="head" setRef={bindPanel.head} state={cardState} partId={anchor?.id ?? ""} lost={lost} />
-      <Panel id="next" setRef={bindPanel.next} state={cardState} partId={anchor?.id ?? ""} lost={lost} />
-      <Panel id="memory" setRef={bindPanel.memory} state={cardState} partId={anchor?.id ?? ""} lost={lost} />
+      <Panel id="head" setRef={bindPanel.head} state={cardState} partId={anchor?.id ?? ""} lost={lost} expanded={expanded.head} onToggle={() => togglePanel("head")} />
+      <Panel id="next" setRef={bindPanel.next} state={cardState} partId={anchor?.id ?? ""} lost={lost} expanded={expanded.next} onToggle={() => togglePanel("next")} />
+      <Panel id="memory" setRef={bindPanel.memory} state={cardState} partId={anchor?.id ?? ""} lost={lost} expanded={expanded.memory} onToggle={() => togglePanel("memory")} />
     </>
   );
 
@@ -500,7 +592,7 @@ export default function ArView() {
           <div>
             <h1 className="text-3xl font-semibold">Live view</h1>
             <p className="mt-3 max-w-xs text-balance text-neutral-300">
-              Keep the camera open. Point it at a part and its memory pins itself to the label.
+              Point the camera at a part. Its memory pins itself to the label, no buttons.
             </p>
           </div>
           {error && <p role="alert" className="max-w-sm text-red-300">{error}</p>}
@@ -522,7 +614,7 @@ export default function ArView() {
       {/* Hint while nothing is pinned */}
       {running && !anchor && (
         <p role="status" className="pointer-events-none absolute inset-x-0 bottom-[max(2rem,env(safe-area-inset-bottom))] text-center text-lg font-medium text-white drop-shadow">
-          Point at a part’s QR code
+          Point at a part’s label
         </p>
       )}
 
@@ -535,7 +627,7 @@ export default function ArView() {
               className="absolute left-0 top-0 origin-top-left transition-transform duration-100 ease-linear will-change-transform"
               style={{ width: PANEL_W, transform: panelTransforms[id] }}
             >
-              <Panel id={id} setRef={bindPanel[id]} state={cardState} partId={anchor.id} lost={lost} />
+              <Panel id={id} setRef={bindPanel[id]} state={cardState} partId={anchor.id} lost={lost} expanded={expanded[id]} onToggle={() => togglePanel(id)} />
             </div>
           ))}
         </div>
@@ -584,19 +676,43 @@ const glassStyle: React.CSSProperties = {
     "linear-gradient(160deg, rgba(255,255,255,0.16), rgba(255,255,255,0.03) 38%, rgba(0,0,0,0) 60%), rgba(12,16,24,0.82)",
 };
 
+const eventDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+
 function Panel({
   id,
   setRef,
   state,
   partId,
   lost,
+  expanded,
+  onToggle,
 }: {
   id: PanelId;
   setRef: (el: HTMLDivElement | null) => void;
   state: CardState;
   partId: string;
   lost: boolean;
+  expanded: boolean;
+  onToggle: () => void;
 }) {
+  // Every panel is a tap target: tap to expand in place, tap again to collapse.
+  const tappable = {
+    role: "button" as const,
+    tabIndex: 0,
+    "aria-expanded": expanded,
+    onClick: onToggle,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onToggle();
+      }
+    },
+  };
+  const more = (
+    <span aria-hidden="true" className="ml-auto shrink-0 font-mono text-[10px] text-white/50">
+      {expanded ? "less ▴" : "more ▾"}
+    </span>
+  );
   const href = `/components/${encodeURIComponent(partId)}`;
   const label = (text: string, extra = "") => (
     <p className={`font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60 ${extra}`}>{text}</p>
@@ -625,27 +741,46 @@ function Panel({
 
   if (id === "head") {
     return (
-      <div ref={setRef} style={glassStyle} className={`${glass} overflow-hidden`}>
+      <div ref={setRef} style={glassStyle} className={`${glass} cursor-pointer overflow-hidden select-none`} {...tappable}>
         <div className={`h-1 w-full ${stripe[status]}`} />
         <div className="p-3.5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               {label(card.asset.name)}
-              <h2 className="mt-0.5 truncate text-[19px] font-semibold leading-tight">{card.component.name}</h2>
+              <h2 className="mt-0.5 line-clamp-2 text-[19px] font-semibold leading-tight">{card.component.name}</h2>
               <p className="truncate text-xs text-white/70">{card.component.location}</p>
             </div>
             <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${pill[status]}`}>
               {lost ? "Last seen" : statusWord[status]}
             </span>
           </div>
-          {card.readings.length > 0 && (
-            <ul className="mt-2.5 flex gap-1.5 overflow-hidden" aria-label="Readings">
+          {card.readings.length > 0 && !expanded && (
+            <ul className="mt-2.5 flex items-center gap-1.5 overflow-hidden" aria-label="Readings">
               {card.readings.map((r) => (
                 <li key={r.label} className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] ring-1 ${pill[r.status]}`}>
                   {r.value}
                 </li>
               ))}
+              {more}
             </ul>
+          )}
+          {expanded && (
+            <div className="mt-3">
+              <dl className="grid gap-1.5">
+                {card.readings.map((r) => (
+                  <div key={r.label} className="flex items-baseline justify-between gap-3 text-[13px]">
+                    <dt className="text-white/70">{r.label}</dt>
+                    <dd className="flex items-baseline gap-2">
+                      <span className="font-mono font-semibold">{r.value}</span>
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase ring-1 ${pill[r.status]}`}>{r.status}</span>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <p className="mt-2.5 flex items-center text-[11px] text-white/50">
+                {card.asset.hours.toLocaleString("en-US")} engine hours · readings simulated for this demo {more}
+              </p>
+            </div>
           )}
         </div>
       </div>
@@ -654,22 +789,38 @@ function Panel({
 
   if (id === "next") {
     return (
-      <div ref={setRef} style={glassStyle} className={`${glass} p-3.5`}>
-        {label("Next step", "text-amber-200/90")}
-        <p className="mt-1 line-clamp-3 text-[16px] font-semibold leading-snug">{card.next_step}</p>
+      <div ref={setRef} style={glassStyle} className={`${glass} cursor-pointer p-3.5 select-none`} {...tappable}>
+        <div className="flex items-center">{label("Next step", "text-amber-200/90")}{more}</div>
+        <p className={`mt-1 text-[16px] font-semibold leading-snug ${expanded ? "" : "line-clamp-3"}`}>{card.next_step}</p>
+        {expanded && (
+          <p className="mt-2 text-[12px] text-white/60">Written for the {card.role} from this part’s history. Switch roles above to change the wording.</p>
+        )}
       </div>
     );
   }
 
   return (
-    <div ref={setRef} style={glassStyle} className={`${glass} p-3.5`}>
-      {label("What this part remembers")}
-      <p className="mt-1 line-clamp-2 text-[14px] leading-snug text-white/85">{card.summary}</p>
+    <div ref={setRef} style={glassStyle} className={`${glass} cursor-pointer p-3.5 select-none`} {...tappable}>
+      <div className="flex items-center">{label("What this part remembers")}{more}</div>
+      <p className={`mt-1 text-[14px] leading-snug text-white/85 ${expanded ? "" : "line-clamp-2"}`}>{card.summary}</p>
+      {expanded && card.recent_events.length > 0 && (
+        <ol className="mt-3 border-l border-white/20" aria-label="Recent history">
+          {card.recent_events.slice(0, 4).map((e) => (
+            <li key={e.id} className="relative pb-2.5 pl-3 text-[12px] leading-snug before:absolute before:-left-[3px] before:top-1.5 before:h-1.5 before:w-1.5 before:rounded-full before:bg-white/70 last:pb-0">
+              <span className="font-mono text-[10px] uppercase text-white/50">
+                {e.type} · {Number.isNaN(Date.parse(e.created_at)) ? "" : eventDate.format(new Date(e.created_at))}
+              </span>
+              <p className="text-white/90">{e.summary}</p>
+            </li>
+          ))}
+        </ol>
+      )}
       <Link
         href={href}
+        onClick={(e) => e.stopPropagation()}
         className="mt-3 flex min-h-11 items-center justify-center rounded-full bg-white px-4 text-sm font-medium text-black hover:bg-neutral-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
       >
-        History &amp; add a note →
+        {expanded ? "Add a note →" : "History & add a note →"}
       </Link>
     </div>
   );
