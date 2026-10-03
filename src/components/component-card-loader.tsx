@@ -92,8 +92,12 @@ export default function ComponentCardLoader({ id, role }: { id: string; role: Ro
         {refreshing && <p className="flex items-center gap-2"><span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-accent" />Re-reading the history and next step…</p>}
         {refreshError && <p role="alert" className="text-alert">Couldn’t refresh the card. The details below may be out of date. <button type="button" onClick={refreshCard} className={`${textLink} text-foreground`}>Refresh card</button></p>}
       </div>
-      <ComponentCard card={result.card} savedEventId={savedEventId} refreshKey={refreshKey} />
-      <NoteForm id={id} role={role} onSaved={noteSaved} onCheckHistory={refreshCard} />
+      <div className="flex flex-col gap-8 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-x-16">
+        <ComponentCard card={result.card} savedEventId={savedEventId} refreshKey={refreshKey} />
+        <div className="lg:sticky lg:top-8">
+          <NoteForm id={id} role={role} onSaved={noteSaved} onCheckHistory={refreshCard} />
+        </div>
+      </div>
     </>
   );
   if (result.kind === "loading") return (

@@ -9,7 +9,7 @@ export default async function ComponentPage({ params }: {
 }) {
   const { id } = await params;
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-6 sm:py-10">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-6 sm:py-10 lg:max-w-5xl">
       <Link href="/scan" className="inline-flex min-h-11 w-fit items-center gap-2 text-sm font-medium text-muted hover:text-foreground">
         <ArrowLeft /> Scan another part
       </Link>
