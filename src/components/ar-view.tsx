@@ -80,6 +80,9 @@ const CAMERA: MediaStreamConstraints = {
   audio: false,
   video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
 };
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 4;
+const ZOOM_STEPS = [1, 1.5, 2, 3, 4]; // what the + and − buttons step through; pinch is continuous
 const SMOOTH_TAU_MS = 70; // per-frame easing time constant; ~3x this to settle
 const CHIP_W = 200; // compact node size, CSS px
 const CHIP_W_NARROW = 136; // when labels crowd each other: dot + name only
@@ -166,6 +169,22 @@ function toScreen(p: Pt, vw: number, vh: number, cw: number, ch: number): Pt {
   return { x: p.x * s + (cw - vw * s) / 2, y: p.y * s + (ch - vh * s) / 2 };
 }
 
+/** The camera's own zoom range, when the browser exposes it (Android Chrome, iOS 17+). */
+function hardwareZoom(track: MediaStreamTrack): { min: number; max: number; current: number } | null {
+  const caps = track.getCapabilities?.() as (MediaTrackCapabilities & { zoom?: { min?: number; max?: number } }) | undefined;
+  const z = caps?.zoom;
+  if (!z || typeof z.min !== "number" || typeof z.max !== "number" || !(z.max > z.min)) return null;
+  const current = (track.getSettings() as MediaTrackSettings & { zoom?: number }).zoom;
+  return { min: z.min, max: z.max, current: current ?? z.min };
+}
+
+function stepZoom(level: number, dir: 1 | -1): number {
+  const steps = dir === 1 ? ZOOM_STEPS.filter((z) => z > level + 0.01) : ZOOM_STEPS.filter((z) => z < level - 0.01);
+  return steps.length ? (dir === 1 ? steps[0] : steps[steps.length - 1]) : level;
+}
+
+const formatZoom = (z: number) => `${Number.isInteger(z) ? z : z.toFixed(1)}×`;
+
 async function loadDetector(): Promise<ArucoDetector> {
   const mod = await import("js-aruco2");
   await import("js-aruco2/src/dictionaries/apriltag_36h11.js");
@@ -233,9 +252,17 @@ export default function ArView() {
   const openRef = useRef<string | null>(null);
   const recRef = useRef<Recognition | null>(null);
   const voiceRef = useRef<VoiceState | null>(null);
+  // Zoom. The camera does what it can; the rest is a centre crop of the frame.
+  const zoomLevelRef = useRef(1); // what the user asked for
+  const digitalZoomRef = useRef(1); // the share the camera could not do, applied by cropping
+  const hwBaseRef = useRef<number | null>(null); // the camera's zoom setting when its stream opened
+  const zoomBusyRef = useRef(false);
+  const zoomPendingRef = useRef<number | null>(null);
 
   const [view, setView] = useState<ViewState>("idle");
   const [error, setError] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const [digitalZoom, setDigitalZoom] = useState(1);
   const [anchors, setAnchors] = useState<Anchor[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
   const role = useSyncExternalStore(subscribeRole, readStoredRole, serverRole);
@@ -375,6 +402,80 @@ export default function ArView() {
     voiceRef.current = value;
     setVoiceState(value);
   }, []);
+  /**
+   * Zoom the camera itself where the browser allows it and crop the frame for
+   * whatever is left. The crop also hands the detector more pixels per label,
+   * so small or far tags read better either way.
+   */
+  const applyZoom = useCallback(async (requested: number) => {
+    const level = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, requested));
+    zoomLevelRef.current = level;
+    setZoom(level);
+    if (zoomBusyRef.current) {
+      zoomPendingRef.current = level;
+      return;
+    }
+    zoomBusyRef.current = true;
+    let hardware = 1;
+    const track = streamRef.current?.getVideoTracks()[0];
+    const range = track ? hardwareZoom(track) : null;
+    if (track && range) {
+      const base = (hwBaseRef.current ??= range.current);
+      const target = Math.min(range.max, Math.max(range.min, base * level));
+      try {
+        await track.applyConstraints({ advanced: [{ zoom: target }] } as unknown as MediaTrackConstraints);
+        hardware = target / base;
+      } catch {
+        /* this camera will not zoom; crop instead */
+      }
+    }
+    const digital = level / hardware;
+    digitalZoomRef.current = digital;
+    setDigitalZoom(digital);
+    zoomBusyRef.current = false;
+    const pending = zoomPendingRef.current;
+    zoomPendingRef.current = null;
+    if (pending !== null && Math.abs(pending - level) > 0.001) void applyZoomRef.current(pending);
+  }, []);
+  const applyZoomRef = useRef(applyZoom);
+  applyZoomRef.current = applyZoom;
+  // Pinch to zoom. Native listeners because React registers touch handlers as
+  // passive, and we need preventDefault so Safari does not zoom the page.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    let startDist = 0;
+    let startLevel = 1;
+    const dist = (t: TouchList) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      e.preventDefault();
+      startDist = dist(e.touches);
+      startLevel = zoomLevelRef.current;
+    };
+    const onMove = (e: TouchEvent) => {
+      if (e.touches.length !== 2 || !startDist) return;
+      e.preventDefault();
+      void applyZoom(startLevel * (dist(e.touches) / startDist));
+    };
+    const onEnd = () => {
+      startDist = 0;
+    };
+    const block = (e: Event) => e.preventDefault();
+    el.addEventListener("touchstart", onStart, { passive: false });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd);
+    el.addEventListener("touchcancel", onEnd);
+    el.addEventListener("gesturestart", block);
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onEnd);
+      el.removeEventListener("gesturestart", block);
+    };
+  }, [applyZoom]);
+
   const pauseCamera = useCallback(() => {
     const stream = streamRef.current;
     if (!stream) return;
@@ -396,12 +497,14 @@ export default function ArView() {
         streamRef.current = stream;
         video.srcObject = stream;
         await video.play();
+        hwBaseRef.current = null;
+        void applyZoom(zoomLevelRef.current);
       })
       .catch((cause) => {
         setError(cameraError(cause));
         setView("error");
       });
-  }, []);
+  }, [applyZoom]);
   const dropRecognition = useCallback(() => {
     const rec = recRef.current;
     if (!rec) return;
@@ -589,6 +692,8 @@ export default function ArView() {
       if (!video) throw new Error("no video element");
       video.srcObject = stream;
       await video.play();
+      hwBaseRef.current = null;
+      void applyZoom(zoomLevelRef.current);
       setView("running");
       lastFrameRef.current = 0;
       rafRef.current = requestAnimationFrame(tick);
@@ -618,7 +723,13 @@ export default function ArView() {
     }
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
-    ctx.drawImage(video, 0, 0, cw, ch);
+    // Digital zoom: read only the centre of the frame. The video element is
+    // scaled by the same factor about the same centre, so toScreen() below
+    // still holds without knowing about zoom.
+    const z = digitalZoomRef.current;
+    const sw = vw / z;
+    const sh = vh / z;
+    ctx.drawImage(video, (vw - sw) / 2, (vh - sh) / 2, sw, sh, 0, 0, cw, ch);
     const img = ctx.getImageData(0, 0, cw, ch);
     tickCountRef.current += 1;
 
@@ -880,6 +991,7 @@ export default function ArView() {
         playsInline
         muted
         autoPlay
+        style={digitalZoom === 1 ? undefined : { transform: `scale(${digitalZoom})` }}
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${running ? "opacity-100" : "opacity-0"}`}
       />
 
@@ -971,6 +1083,39 @@ export default function ArView() {
           <Link href="/scan" className="flex min-h-11 items-center text-sm text-neutral-300 underline underline-offset-4">
             Use the simple scanner instead
           </Link>
+        </div>
+      )}
+
+      {/* Zoom: + and − on the right edge; pinch works too */}
+      {running && (
+        <div role="group" aria-label="Zoom" className="absolute right-3 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center rounded-full bg-black/50 p-0.5 backdrop-blur">
+          <button
+            type="button"
+            aria-label="Zoom in"
+            disabled={zoom >= ZOOM_MAX - 0.01}
+            onClick={() => void applyZoom(stepZoom(zoom, 1))}
+            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-2xl leading-none focus-visible:outline-2 focus-visible:outline-white disabled:cursor-default disabled:opacity-40"
+          >
+            +
+          </button>
+          <button
+            type="button"
+            aria-label={`Zoom ${formatZoom(zoom)}, tap to reset`}
+            disabled={zoom <= ZOOM_MIN + 0.01}
+            onClick={() => void applyZoom(1)}
+            className="min-h-7 cursor-pointer px-1 text-xs font-medium tabular-nums focus-visible:outline-2 focus-visible:outline-white disabled:cursor-default"
+          >
+            {formatZoom(zoom)}
+          </button>
+          <button
+            type="button"
+            aria-label="Zoom out"
+            disabled={zoom <= ZOOM_MIN + 0.01}
+            onClick={() => void applyZoom(stepZoom(zoom, -1))}
+            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-2xl leading-none focus-visible:outline-2 focus-visible:outline-white disabled:cursor-default disabled:opacity-40"
+          >
+            −
+          </button>
         </div>
       )}
 
