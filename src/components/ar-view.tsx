@@ -271,6 +271,9 @@ export default function ArView() {
   const [voiceState, setVoiceState] = useState<VoiceState | null>(null);
   const speechOk = useSyncExternalStore(noSubscribe, speechSupported, speechOnServer);
   const [size, setSize] = useState({ w: 0, h: 0 });
+  // Landscape is the intended grip: the camera frame is wide, the panels have
+  // room beside the label, and a tag reads at the same size as upright.
+  const landscape = size.w > size.h;
   const [heights, setHeights] = useState<Record<PanelId, number>>({ head: 96, next: 110, memory: 150 });
   // Expanded panels are remembered per open part, so switching to another
   // label starts collapsed without an effect to reset anything.
@@ -696,6 +699,9 @@ export default function ArView() {
       hwBaseRef.current = null;
       void applyZoom(zoomLevelRef.current);
       setView("running");
+      (screen.orientation as unknown as { lock?: (o: string) => Promise<void> }).lock?.("landscape").catch(() => {
+        /* iOS and non-fullscreen Android refuse; the hint below asks instead */
+      });
       lastFrameRef.current = 0;
       rafRef.current = requestAnimationFrame(tick);
     } catch (cause) {
@@ -714,7 +720,10 @@ export default function ArView() {
 
     const vw = video.videoWidth;
     const vh = video.videoHeight;
-    const k = Math.min(1, DECODE_WIDTH / vw);
+    // Scale by the short side, not the width: a landscape frame (1280x720) would
+    // otherwise shrink almost twice as hard as a portrait one (720x1280) and
+    // tags that read fine upright fall below the detector's minimum size.
+    const k = Math.min(1, DECODE_WIDTH / Math.min(vw, vh));
     const cw = Math.round(vw * k);
     const ch = Math.round(vh * k);
     const canvas = (canvasRef.current ??= document.createElement("canvas"));
@@ -1039,7 +1048,7 @@ export default function ArView() {
       )}
 
       {/* Top bar */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 p-4 pt-[max(1rem,env(safe-area-inset-top))]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 p-4 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(1rem,env(safe-area-inset-top))]">
         <Link href="/" className="pointer-events-auto flex min-h-11 items-center rounded-ctl bg-black/50 px-4 font-medium backdrop-blur focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
           <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />Home
         </Link>
@@ -1089,7 +1098,7 @@ export default function ArView() {
 
       {/* Zoom: + and − on the right edge; pinch works too */}
       {running && (
-        <div role="group" aria-label="Zoom" className="absolute right-3 top-1/2 z-20 flex -translate-y-1/2 flex-col items-center rounded-full bg-black/50 p-0.5 backdrop-blur">
+        <div role="group" aria-label="Zoom" className="absolute right-[max(0.75rem,env(safe-area-inset-right))] top-1/2 z-20 flex -translate-y-1/2 flex-col items-center rounded-full bg-black/50 p-0.5 backdrop-blur">
           <button
             type="button"
             aria-label="Zoom in"
@@ -1122,8 +1131,8 @@ export default function ArView() {
 
       {/* Hint while nothing is pinned */}
       {running && anchors.length === 0 && (
-        <p role="status" className="pointer-events-none absolute inset-x-0 bottom-[max(2rem,env(safe-area-inset-bottom))] text-center text-lg font-medium text-white drop-shadow">
-          Point at a part’s label
+        <p role="status" className="pointer-events-none absolute inset-x-0 bottom-[max(2rem,env(safe-area-inset-bottom))] flex items-center justify-center gap-3 px-6 text-center text-lg font-medium text-white drop-shadow">
+          {landscape ? "Point at a part’s label" : <><RotateIcon />Turn the phone sideways, then point at a label</>}
         </p>
       )}
 
@@ -1156,6 +1165,18 @@ export default function ArView() {
         </div>
       )}
     </div>
+  );
+}
+
+/** A phone turning from upright to wide. */
+function RotateIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="7" y="2.5" width="10" height="19" rx="2" />
+      <path d="M12 18.5h.01" />
+      <path d="M20.5 9.5a8.5 8.5 0 0 0-3-5M3.5 14.5a8.5 8.5 0 0 0 3 5" />
+      <path d="M20.5 6v3.5H17M3.5 18v-3.5H7" />
+    </svg>
   );
 }
 
