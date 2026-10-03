@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
-import { CHAT_MAX_CHARS, CHAT_MAX_MESSAGES, type ChatMessage, type ChatRequest } from "@/lib/chat";
+import { CHAT_MAX_CHARS, CHAT_MAX_MESSAGES, READINGS_HEADER, type ChatMessage, type ChatRequest, type ReadingsUpdated } from "@/lib/chat";
 import { getAsset, getComponent, getRecentEvents, PROMPT_EVENTS } from "@/lib/server/data";
-import { hasLlm, streamChat } from "@/lib/server/llm";
-import { readingsFor } from "@/lib/server/readings";
+import { extractReadingUpdates, hasLlm, streamChat } from "@/lib/server/llm";
+import { readingsFor, updateReadings } from "@/lib/server/readings";
 
 // The reply streams for up to 45 s (see CHAT_TIMEOUT_MS in llm.ts).
 export const maxDuration = 60;
@@ -59,19 +59,31 @@ export async function POST(
       return Response.json({ error: `Unknown component: ${id}` }, { status: 404 });
     }
 
-    const readings = await readingsFor(id);
-    const stream = await streamChat(component, asset, history, readings, author_role, messages);
+    // A stated measurement ("inner pad is at 3.5 mm") is recorded before the
+    // answer, so the model sees the new value and the client can patch the card.
+    const current = await readingsFor(id);
+    const updates = await extractReadingUpdates(messages[messages.length - 1].content, current, component);
+    let readings = current;
+    let updated: ReadingsUpdated | null = null;
+    if (updates.length > 0) {
+      readings = await updateReadings(id, updates);
+      updated = {
+        changes: updates.map((u) => ({ label: u.label, from: current.find((r) => r.label === u.label)?.value ?? "", to: u.value, status: u.status })),
+        readings,
+      };
+    }
+    const stream = await streamChat(component, asset, history, readings, author_role, messages, updated !== null);
     if (!stream) {
       return Response.json({ error: "The assistant couldn’t answer right now." }, { status: 502 });
     }
-    return new Response(stream, {
-      status: 200,
-      headers: {
-        "content-type": "text/plain; charset=utf-8",
-        "cache-control": "no-store",
-        "x-accel-buffering": "no",
-      },
-    });
+    const headers: Record<string, string> = {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "no-store",
+      "x-accel-buffering": "no",
+    };
+    // Header values must be single-line Latin-1; units like ₂ get replaced.
+    if (updated) headers[READINGS_HEADER] = JSON.stringify(updated).replace(/[^\x20-\xff]/g, "?");
+    return new Response(stream, { status: 200, headers });
   } catch (cause) {
     console.error("[chat]", cause);
     return Response.json({ error: "The assistant couldn’t answer right now." }, { status: 500 });

@@ -44,6 +44,12 @@ the response streams back as `text/plain` chunks (no JSON, no SSE framing):
 read the body as it arrives and append. Nothing is stored; the client keeps
 the thread.
 
+When the latest user turn states a measurement, the server records it on
+the part's readings before answering and sets the `x-readings-updated`
+header to JSON `{ changes: [{ label, from, to, status }], readings }` where
+`readings` is the full list after the change. Absent when nothing changed.
+The body is unchanged.
+
 Errors: `400` bad body, `404` unknown component, `503` when no LLM key is
 set, `502` when the provider fails before the first byte.
 

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ComponentCard, Reading, Role } from "@/lib/types";
-import type { ChatMessage, ChatRequest } from "@/lib/chat";
+import { READINGS_HEADER, type ChatMessage, type ChatRequest, type ReadingChange, type ReadingsUpdated } from "@/lib/chat";
 import { speechConstructor, speechErrorMessage, type Recognition } from "@/lib/speech";
 
 /**
@@ -46,6 +46,7 @@ export default function PartChat({
   role,
   messages,
   onMessages,
+  onReadings,
   landscape,
   speechOk,
   camera,
@@ -55,6 +56,8 @@ export default function PartChat({
   role: Role;
   messages: ChatMessage[];
   onMessages: (next: ChatMessage[]) => void;
+  /** The server recorded a measurement from this turn; here is the part's full list after it. */
+  onReadings: (readings: Reading[]) => void;
   landscape: boolean;
   speechOk: boolean;
   camera: CameraControl;
@@ -120,7 +123,7 @@ export default function PartChat({
       stopSpeaking();
       setError("");
       setDraft("");
-      const thread: ChatMessage[] = [...messagesRef.current, { role: "user", content: text }];
+      let thread: ChatMessage[] = [...messagesRef.current, { role: "user", content: text }];
       onMessages(thread);
       setPhase("thinking");
       const ctrl = new AbortController();
@@ -136,6 +139,22 @@ export default function PartChat({
         if (!res.ok || !res.body) {
           const j = (await res.json().catch(() => null)) as { error?: string } | null;
           throw new Error(j?.error || "The assistant couldn’t answer. Try again.");
+        }
+        // A stated measurement was recorded server-side: patch the card and
+        // pin the change to this turn. A bad header never blocks the answer.
+        const raw = res.headers.get(READINGS_HEADER);
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw) as ReadingsUpdated;
+            if (Array.isArray(parsed.changes) && Array.isArray(parsed.readings) && parsed.changes.length > 0) {
+              const changes: ReadingChange[] = parsed.changes;
+              thread = [...thread.slice(0, -1), { role: "user", content: text, changes }];
+              onMessages(thread);
+              onReadings(parsed.readings);
+            }
+          } catch {
+            /* answer still shows */
+          }
         }
         setPhase("streaming");
         const reader = res.body.getReader();
@@ -161,7 +180,7 @@ export default function PartChat({
         setPhase("idle");
       }
     },
-    [id, role, readAloud, onMessages],
+    [id, role, readAloud, onMessages, onReadings],
   );
 
   // Tap the mic: listen until the person stops talking, then send what was heard.
@@ -317,6 +336,15 @@ export default function PartChat({
             }`}
           >
             {m.content}
+            {m.role === "user" && m.changes && m.changes.length > 0 && (
+              <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Readings updated">
+                {m.changes.map((c) => (
+                  <li key={c.label} className="rounded-full bg-black/85 px-2.5 py-1 font-mono text-[11px] font-semibold text-[#ffcd11] ring-1 ring-black/40">
+                    {c.label} {c.from} → {c.to} · {c.status}
+                  </li>
+                ))}
+              </ul>
+            )}
             {m.role === "assistant" && phase === "streaming" && i === messages.length - 1 && (
               <span aria-hidden="true" className="ml-0.5 inline-block h-[1em] w-[2px] translate-y-[2px] animate-pulse bg-[#ffcd11]" />
             )}
