@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Html5Qrcode } from "html5-qrcode";
 
 type CameraState = "idle" | "opening" | "running" | "stopping" | "error";
@@ -20,6 +21,8 @@ function cameraError(error: unknown) {
 }
 
 export default function CameraScanner() {
+  const router = useRouter();
+  const scanAccepted = useRef(false);
   const [state, setState] = useState<CameraState>("idle");
   const [error, setError] = useState("");
   const [componentId, setComponentId] = useState("");
@@ -52,6 +55,7 @@ export default function CameraScanner() {
     busy.current = true;
     setError("");
     setComponentId("");
+    scanAccepted.current = false;
     setState("opening");
     const operation = (async () => {
       try {
@@ -65,7 +69,7 @@ export default function CameraScanner() {
         await current.start(
           { facingMode: "environment" },
           { fps: 10 },
-          (text) => { if (mounted.current) setComponentId(text.trim()); },
+          (text) => { void handleScan(text); },
           () => {},
         );
         if (mounted.current) setState("running");
@@ -85,7 +89,7 @@ export default function CameraScanner() {
   }
 
   async function stopCamera() {
-    if (busy.current) return;
+    if (busy.current) return false;
     busy.current = true;
     setError("");
     setState("stopping");
@@ -95,17 +99,31 @@ export default function CameraScanner() {
         scanner.current?.clear();
         scanner.current = null;
         if (mounted.current) setState("idle");
+        return true;
       } catch {
         if (mounted.current) {
           setError("The camera could not stop. Close this tab to release it.");
           setState("running");
         }
+        return false;
       } finally {
         busy.current = false;
       }
     })();
-    pending.current = operation;
-    await operation;
+    pending.current = operation.then(() => {});
+    return await operation;
+  }
+
+  async function handleScan(text: string) {
+    if (!mounted.current || busy.current || scanAccepted.current || !text) return;
+    scanAccepted.current = true;
+    setComponentId(text);
+    const stopped = await stopCamera();
+    if (stopped && mounted.current) {
+      router.push(`/c/${encodeURIComponent(text)}`);
+    } else {
+      scanAccepted.current = false;
+    }
   }
 
   const active = state === "running" || state === "stopping";
