@@ -1,7 +1,23 @@
-import type { ComponentCard, MachineEvent, Role } from "@/lib/types";
-import { getAsset, getComponent, getRecentEvents } from "./data";
+import { createHash } from "node:crypto";
+import type {
+  Asset,
+  Component,
+  ComponentCard,
+  MachineEvent,
+  Role,
+} from "@/lib/types";
+import {
+  getAsset,
+  getCachedCardText,
+  getComponent,
+  getRecentEvents,
+  saveCardText,
+} from "./data";
 import { writeCard } from "./llm";
 import { readingsFor } from "./readings";
+
+// Bump when the card prompt changes so old cached wording is not reused.
+const PROMPT_VERSION = "v1";
 
 export async function buildCard(
   componentId: string,
@@ -16,9 +32,7 @@ export async function buildCard(
   ]);
   if (!asset) return null;
 
-  const text =
-    (await writeCard(component, asset, recent_events, role)) ??
-    placeholderText(component.name, role, recent_events);
+  const text = await cardText(component, asset, recent_events, role);
 
   return {
     component,
@@ -29,6 +43,54 @@ export async function buildCard(
     readings: readingsFor(componentId),
     recent_events,
   };
+}
+
+// The LLM text is cached per component, role, and history content, so the
+// same history always shows the same wording and it only regenerates when a
+// note is added. The key hashes event content, not event ids, so the wording
+// also survives `npm run seed` (which assigns new ids).
+async function cardText(
+  component: Component,
+  asset: Asset,
+  events: MachineEvent[],
+  role: Role,
+): Promise<{ summary: string; next_step: string }> {
+  const key = cacheKey(component, asset, events, role);
+  const cached = await getCachedCardText(key);
+  if (cached) return cached;
+
+  const written = await writeCard(component, asset, events, role);
+  if (written) {
+    await saveCardText(key, written);
+    return written;
+  }
+  // LLM unavailable: do not cache the placeholder, try again next request.
+  return placeholderText(component.name, role, events);
+}
+
+function cacheKey(
+  component: Component,
+  asset: Asset,
+  events: MachineEvent[],
+  role: Role,
+): string {
+  const content = JSON.stringify([
+    PROMPT_VERSION,
+    asset.name,
+    asset.model,
+    asset.hours,
+    component.name,
+    component.location,
+    events.map((e) => [
+      e.type,
+      e.summary,
+      e.detail,
+      e.author_role,
+      new Date(e.created_at).toISOString(),
+    ]),
+  ]);
+  const hash = createHash("sha256").update(content).digest("hex").slice(0, 32);
+  return `${component.id}:${role}:${hash}`;
 }
 
 // Used when no LLM key is set or the call fails. Keeps the demo alive.
