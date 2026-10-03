@@ -26,6 +26,21 @@ inserts it, and returns `NewNoteResponse`.
 This is the write-back loop. The next `GET .../card` for this component must
 reflect the new event. That is the demo moment.
 
+## `POST /api/components/[id]/chat`
+
+Body: `ChatRequest` from `src/lib/chat.ts` (`{ messages, author_role }`, the
+whole thread so far, oldest first, ending with the new user turn; at most 24
+messages of 2000 characters).
+
+The part assistant behind the mic button in the live view. The LLM answers
+from the same history and readings the card uses, worded for the role, and
+the response streams back as `text/plain` chunks (no JSON, no SSE framing):
+read the body as it arrives and append. Nothing is stored; the client keeps
+the thread.
+
+Errors: `400` bad body, `404` unknown component, `503` when no LLM key is
+set, `502` when the provider fails before the first byte.
+
 ## `GET /api/dashboard`
 
 Returns `DashboardData`: all assets, components, the newest 200 events across
