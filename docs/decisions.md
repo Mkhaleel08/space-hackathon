@@ -43,3 +43,15 @@ QR failed, and a tag carries only a number, so the lookup is in
 target that expands in place, so there are no buttons off the camera view.
 QR labels still work through a fallback decoder. Still no markerless
 recognition, no hand gestures, no WebXR. Print tags on matte paper.
+
+## Addendum, Oct 3 5:00 AM (Mehran, agreed with the team)
+
+Scope reopened for one thing after the freeze: an **operator dashboard** at
+`/dashboard`, built on the existing data and style, in three PRs so `main`
+stays demo-able after each. (1) Overview of every asset and part with status
+from the worst reading, next step, and a recent-activity feed. (2) Delete a
+worker note, gated by a shared `OPERATOR_PIN` env var checked on the server,
+because the app has no accounts; this is the honest gap, not a login system.
+(3) AprilTag manager: add a part, get the next free 36h11 id, print the label;
+the tag map moves to a `tags` table with `src/lib/markers.ts` as fallback.
+Still no AR beyond the pinned live view, no markerless recognition.

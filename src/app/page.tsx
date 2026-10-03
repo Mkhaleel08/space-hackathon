@@ -20,6 +20,12 @@ export default function Home() {
         >
           Scan a part
         </Link>
+        <Link
+          href="/dashboard"
+          className="flex min-h-14 items-center justify-center rounded-full px-8 py-4 text-lg font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-4"
+        >
+          Operator dashboard
+        </Link>
       </div>
     </main>
   );

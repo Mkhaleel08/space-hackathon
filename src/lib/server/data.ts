@@ -127,3 +127,31 @@ export async function saveCardText(key: string, text: CardText): Promise<void> {
     .upsert({ key, ...text }, { onConflict: "key", ignoreDuplicates: true });
   if (error) console.error("[card_cache] write:", error.message);
 }
+
+// --- Dashboard reads ---------------------------------------------------------
+
+const DASHBOARD_EVENTS = 200;
+
+export async function listAssets(): Promise<Asset[]> {
+  if (!hasSupabase()) return seedAssets as Asset[];
+  const { data, error } = await supabase().from("assets").select("*").order("id");
+  if (error) throw error;
+  return (data ?? []) as Asset[];
+}
+
+/** Newest first, across every part. */
+export async function listEvents(limit = DASHBOARD_EVENTS): Promise<MachineEvent[]> {
+  if (!hasSupabase()) {
+    const seeded = (seedEvents as Omit<MachineEvent, "id">[]).map((e, i) => ({ id: `seed-${i}`, ...e })) as MachineEvent[];
+    return [...localEvents, ...seeded]
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))
+      .slice(0, limit);
+  }
+  const { data, error } = await supabase()
+    .from("events")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as MachineEvent[];
+}

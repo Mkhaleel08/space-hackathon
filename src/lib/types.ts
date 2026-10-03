@@ -61,3 +61,18 @@ export interface NewNoteRequest {
 export interface NewNoteResponse {
   event: MachineEvent; // the structured event the LLM produced
 }
+
+/**
+ * What GET /api/dashboard returns: everything the operator dashboard shows in
+ * one trip. Readings are keyed by component id; a missing or empty list means
+ * no telemetry for that part, which the UI shows as "No readings", never as
+ * healthy.
+ */
+export interface DashboardData {
+  assets: Asset[];
+  components: Component[];
+  events: MachineEvent[]; // newest first, across all parts, capped server-side
+  readings: Record<string, Reading[]>;
+  next_steps: Record<string, string>; // operator wording, from the card cache when warm
+  generated_at: string; // ISO 8601
+}
