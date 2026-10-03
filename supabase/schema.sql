@@ -30,8 +30,7 @@ create table if not exists events (
 create index if not exists events_component_created_idx
   on events (component_id, created_at desc);
 
--- Demo app, single team, server-side service role key. RLS stays off for the
--- hackathon. Turn it on before anything real touches this.
+-- Row level security: see the bottom of this file.
 
 -- Cached LLM card wording. Key is "<component_id>:<role>:<hash of history>",
 -- so the same history always shows the same text and a new note produces a
@@ -55,3 +54,13 @@ insert into tags (tag_id, component_id) values
   (0, 'hyd-pump'), (1, 'boom-cyl'), (2, 'engine-air'), (3, 'track-left'),
   (10, 'car-brakes-lf'), (11, 'car-battery'), (12, 'car-air-filter'), (13, 'car-tire-lf')
 on conflict do nothing;
+
+-- Row level security. The app only talks to the database from the server with
+-- the service role key, which bypasses RLS. Enabling RLS with no policies means
+-- the public anon key can read and write nothing, so a leaked project URL is
+-- harmless. Safe to re-run.
+alter table assets enable row level security;
+alter table components enable row level security;
+alter table events enable row level security;
+alter table card_cache enable row level security;
+alter table tags enable row level security;

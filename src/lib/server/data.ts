@@ -9,7 +9,10 @@ import seedEvents from "../../../data/seed/events.json";
 // the seed JSON (plus an in-memory list for new notes) so the routes work
 // during local development. In-memory notes are lost on restart.
 
-const RECENT_EVENTS = 10;
+// The API returns the newest RECENT_EVENTS. The card prompt reads further
+// back (PROMPT_EVENTS) so old unresolved flags are not pushed out by new notes.
+export const RECENT_EVENTS = 10;
+export const PROMPT_EVENTS = 40;
 const localEvents: MachineEvent[] = [];
 
 export async function getComponent(id: string): Promise<Component | null> {
@@ -40,6 +43,7 @@ export async function getAsset(id: string): Promise<Asset | null> {
 
 export async function getRecentEvents(
   componentId: string,
+  limit = RECENT_EVENTS,
 ): Promise<MachineEvent[]> {
   if (!hasSupabase()) {
     const seeded = (seedEvents as Omit<MachineEvent, "id">[]).map((e, i) => ({
@@ -49,14 +53,14 @@ export async function getRecentEvents(
     return [...localEvents, ...seeded]
       .filter((e) => e.component_id === componentId)
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
-      .slice(0, RECENT_EVENTS);
+      .slice(0, limit);
   }
   const { data, error } = await supabase()
     .from("events")
     .select("*")
     .eq("component_id", componentId)
     .order("created_at", { ascending: false })
-    .limit(RECENT_EVENTS);
+    .limit(limit);
   if (error) throw error;
   return (data ?? []) as MachineEvent[];
 }
