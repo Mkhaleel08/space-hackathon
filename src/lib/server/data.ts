@@ -1,4 +1,5 @@
-import type { Asset, Component, MachineEvent } from "@/lib/types";
+import type { Asset, Component, MachineEvent, TagAssignment } from "@/lib/types";
+import { TAG_TO_COMPONENT } from "@/lib/markers";
 import { hasSupabase, supabase } from "./supabase";
 import seedAssets from "../../../data/seed/assets.json";
 import seedComponents from "../../../data/seed/components.json";
@@ -13,7 +14,7 @@ const localEvents: MachineEvent[] = [];
 
 export async function getComponent(id: string): Promise<Component | null> {
   if (!hasSupabase()) {
-    return (seedComponents as Component[]).find((c) => c.id === id) ?? null;
+    return [...localComponents, ...(seedComponents as Component[])].find((c) => c.id === id) ?? null;
   }
   const { data, error } = await supabase()
     .from("components")
@@ -82,7 +83,7 @@ export async function insertEvent(
 }
 
 export async function listComponents(): Promise<Component[]> {
-  if (!hasSupabase()) return seedComponents as Component[];
+  if (!hasSupabase()) return [...(seedComponents as Component[]), ...localComponents];
   const { data, error } = await supabase()
     .from("components")
     .select("*")
@@ -171,4 +172,57 @@ export async function deleteEvent(id: string): Promise<MachineEvent | null> {
     .maybeSingle();
   if (error) throw error;
   return (data as MachineEvent | null) ?? null;
+}
+
+// --- Tags and new parts ------------------------------------------------------
+
+export class TagsTableMissing extends Error {
+  constructor() {
+    super("The tags table does not exist yet. Run the tags statement in supabase/schema.sql.");
+  }
+}
+
+// Postgres says 42P01; PostgREST says PGRST205 when the table is not in its schema cache.
+const missingTable = (error: { code?: string }) => error.code === "42P01" || error.code === "PGRST205";
+
+const localTags: TagAssignment[] = Object.entries(TAG_TO_COMPONENT).map(([tag_id, component_id]) => ({ tag_id: Number(tag_id), component_id }));
+const localComponents: Component[] = [];
+
+/** Live tag map. Throws TagsTableMissing when the schema has not been applied. */
+export async function listTags(): Promise<TagAssignment[]> {
+  if (!hasSupabase()) return localTags;
+  const { data, error } = await supabase().from("tags").select("tag_id, component_id").order("tag_id");
+  if (error) throw missingTable(error) ? new TagsTableMissing() : error;
+  return (data ?? []) as TagAssignment[];
+}
+
+export async function insertTag(tag: TagAssignment): Promise<TagAssignment> {
+  if (!hasSupabase()) {
+    localTags.push(tag);
+    return tag;
+  }
+  const { data, error } = await supabase().from("tags").insert(tag).select("tag_id, component_id").single();
+  if (error) throw missingTable(error) ? new TagsTableMissing() : error;
+  return data as TagAssignment;
+}
+
+export async function insertComponent(component: Component): Promise<Component> {
+  if (!hasSupabase()) {
+    localComponents.push(component);
+    return component;
+  }
+  const { data, error } = await supabase().from("components").insert(component).select("*").single();
+  if (error) throw error;
+  return data as Component;
+}
+
+/** Used to roll back a part whose tag could not be assigned. */
+export async function deleteComponent(id: string): Promise<void> {
+  if (!hasSupabase()) {
+    const i = localComponents.findIndex((c) => c.id === id);
+    if (i !== -1) localComponents.splice(i, 1);
+    return;
+  }
+  const { error } = await supabase().from("components").delete().eq("id", id);
+  if (error) throw error;
 }

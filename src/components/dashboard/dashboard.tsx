@@ -7,6 +7,7 @@ import ActivityFeed from "./activity-feed";
 import AssetOverview, { groupAssets } from "./asset-overview";
 import { formatAbsolute, useNow } from "./format";
 import { LEVEL_LABEL, type Level, worstOf } from "./status";
+import TagManager from "./tag-manager";
 
 type StatusFilter = "all" | Level;
 const STATUS_ORDER: Level[] = ["alert", "watch", "ok", "none"];
@@ -151,6 +152,8 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
           <ActivityFeed events={visibleEvents} componentsById={componentsById} assetsById={assetsById} now={now} emptyMessage={data.events.length ? "No activity matches these filters." : "Nothing recorded yet. Notes from the field show up here."} onDeleted={eventDeleted} />
         </section>
       </div>
+
+      <TagManager assets={data.assets} components={data.components} tags={data.tags} tagsLive={data.tags_live} onChanged={refresh} />
     </main>
   );
 }

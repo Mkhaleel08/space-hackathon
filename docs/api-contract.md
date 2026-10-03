@@ -45,7 +45,30 @@ PIN, `404` for an unknown event id.
 
 ## `GET /api/components`
 
-Lists all components for the one asset. Used by the checklist (second tier).
+Lists all components across assets.
+
+## `POST /api/components`
+
+Header: `x-operator-pin`. Body: `NewComponentRequest` (`{ asset_id, name,
+location }`). Creates the part (id is a slug of the name, de-duplicated),
+assigns the next free AprilTag 36h11 id, and returns `NewComponentResponse`
+(`{ component, tag }`). `404` unknown asset, `503` when the `tags` table is
+missing or no PIN is configured.
+
+## `GET /api/tags`
+
+Returns `TagAssignment[]`: every AprilTag id bound to a component. The live
+view loads this on start and falls back to `src/lib/markers.ts` if it fails.
+Header `x-tags-source: table | fallback` says which one served it.
+
+## `POST /api/tags`
+
+Header: `x-operator-pin`. Body: `NewTagRequest` (`{ component_id }`). Binds the
+smallest free 36h11 id to a part that has none. `409` if it already has one.
+
+## `GET /labels?component=<id>`
+
+Not an API, a print page: every tagged part's label, or one part's.
 
 ## Mocking before the backend exists
 

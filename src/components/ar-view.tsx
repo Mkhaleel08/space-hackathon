@@ -2,9 +2,9 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import type { ComponentCard as Card, NewNoteRequest, NewNoteResponse, Reading, Role } from "@/lib/types";
+import type { ComponentCard as Card, NewNoteRequest, NewNoteResponse, Reading, Role, TagAssignment } from "@/lib/types";
 import type { ArucoDetector } from "js-aruco2";
-import { componentForTag, DICTIONARY } from "@/lib/markers";
+import { DICTIONARY, TAG_TO_COMPONENT } from "@/lib/markers";
 import {
   apply,
   center,
@@ -210,6 +210,10 @@ export default function ArView() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Tag id -> component id. Starts from the static map and is replaced by the
+  // live table once /api/tags answers, so parts added on the dashboard work
+  // without a redeploy.
+  const tagMapRef = useRef<Record<number, string>>(TAG_TO_COMPONENT);
   // iOS Safari will not start speech recognition while the page holds the
   // camera. Once we learn that on this device, the camera is released while
   // listening and re-opened afterwards.
@@ -564,6 +568,14 @@ export default function ArView() {
     }
     setError("");
     setView("opening");
+    fetch("/api/tags", { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<TagAssignment[]>) : Promise.reject(new Error(String(r.status)))))
+      .then((tags) => {
+        const live: Record<number, string> = { ...TAG_TO_COMPONENT };
+        for (const t of tags) live[t.tag_id] = t.component_id;
+        tagMapRef.current = live;
+      })
+      .catch(() => { /* keep the static map */ });
     try {
       const [{ default: jsQR }, detector, stream] = await Promise.all([
         import("jsqr"),
@@ -615,7 +627,7 @@ export default function ArView() {
     const seen = new Map<string, Pt[]>();
     const markers = detectorRef.current?.detect(img) ?? [];
     for (const m of markers) {
-      const cid = componentForTag(m.id);
+      const cid = tagMapRef.current[m.id] ?? null;
       if (cid && m.corners.length === 4 && !seen.has(cid)) seen.set(cid, m.corners);
     }
     if (seen.size === 0 && tickCountRef.current % 3 === 0) {

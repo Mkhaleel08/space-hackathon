@@ -74,10 +74,36 @@ export interface DashboardData {
   events: MachineEvent[]; // newest first, across all parts, capped server-side
   readings: Record<string, Reading[]>;
   next_steps: Record<string, string>; // operator wording, from the card cache when warm
+  tags: TagAssignment[];
+  tags_live: boolean; // false while the tags table is missing and the static map is in use
   generated_at: string; // ISO 8601
 }
 
 /** Response for DELETE /api/events/[id] (needs the operator PIN header). */
 export interface DeleteEventResponse {
   deleted: MachineEvent;
+}
+
+/** One printed AprilTag (36h11 id) bound to one component. From GET /api/tags. */
+export interface TagAssignment {
+  tag_id: number; // 0–586
+  component_id: string;
+}
+
+/** Body for POST /api/components (needs the operator PIN header). */
+export interface NewComponentRequest {
+  asset_id: string;
+  name: string;
+  location: string;
+}
+
+/** Response for POST /api/components: the part plus its freshly assigned tag. */
+export interface NewComponentResponse {
+  component: Component;
+  tag: TagAssignment;
+}
+
+/** Body for POST /api/tags (needs the operator PIN header): assign the next free id. */
+export interface NewTagRequest {
+  component_id: string;
 }
