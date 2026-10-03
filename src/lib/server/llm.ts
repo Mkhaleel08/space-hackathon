@@ -275,6 +275,7 @@ export async function streamChat(
   readings: Reading[],
   role: Role,
   messages: { role: "user" | "assistant"; content: string }[],
+  recorded = false,
 ): Promise<ReadableStream<Uint8Array> | null> {
   const audience =
     role === "operator"
@@ -288,6 +289,9 @@ export async function streamChat(
     "Older flags that were never resolved still matter: raise them.",
     "Answers are read aloud and shown on a phone: under 110 words. Either 2 to 4 short sentences or one numbered list of at most 4 steps, not both. Plain text only, no markdown, no headings, no bold.",
     "If something is a safety risk (pressure, hot fluid, stored energy, lifting), say so first.",
+    ...(recorded
+      ? ["The measurement in the latest message has already been recorded on the card and <readings> shows the new value; confirm it in a few words, then say what it means."]
+      : []),
     DATA_RULE,
   ].join(" ");
   const context = [
