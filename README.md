@@ -35,6 +35,17 @@ Next.js 16 (App Router) on Vercel · Supabase Postgres · `html5-qrcode` · LLM 
 - No API keys in the repo, ever. `.env.local` is gitignored. If a key leaks, rotate it.
 - Feature freeze Saturday 5:00 AM. Nothing new after that.
 
+### Deploys go through Mehran
+
+Vercel is on the Hobby plan, which only lets one person on the team and only
+builds commits authored by that person. So:
+
+- **Previews:** push your branch, then ping Mehran in chat. Mehran checks it
+  out and runs `vercel`, and sends back the preview URL.
+- **Production:** open a PR. Mehran merges it with **"Create a merge commit"**
+  (not squash), which redeploys `https://space-hackathon-ten.vercel.app`.
+- Your own pushes to `main` will not redeploy, so don't push to `main` directly.
+
 ## Run it
 
 ```bash
@@ -43,8 +54,8 @@ cp .env.example .env.local   # fill in Supabase + LLM keys
 npm run dev                  # http://localhost:3000
 ```
 
-Camera access needs HTTPS on a phone, so test on the Vercel preview URL (every
-branch gets one) rather than localhost.
+Camera access needs HTTPS on a phone, so test on a Vercel preview URL (ask
+Mehran, see below) or on production rather than localhost.
 
 Database: run `supabase/schema.sql` once in the Supabase SQL editor, then
 `npm run seed` to load the demo data. **Run `npm run seed` before every demo.**

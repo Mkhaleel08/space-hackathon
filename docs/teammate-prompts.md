@@ -39,7 +39,9 @@ My milestones, in order:
 
 Keep route handlers thin, put logic in src/lib/server/. No tests unless I ask.
 Feature freeze is Saturday 5:00 AM. Work on a branch named neeraj/<feature>,
-small commits, merge to main often. main must always build.
+small commits, open PRs often. Vercel only builds Mehran's commits, so Mehran
+merges every PR with a merge commit. Never push to main directly. main must
+always build.
 
 Start with milestone 1 and 2 (hardcoded version). Tell me when the card
 route returns something so I can ping the frontend.
@@ -82,8 +84,13 @@ No tests unless I ask. Feature freeze is Saturday 5:00 AM. Work on a branch
 named vineeth/<feature>, small commits, merge to main often. main must
 always build.
 
-Start with milestone 1. Push to a branch so I get a Vercel preview URL to
-test the camera on my phone.
+Vercel is on the Hobby plan, so only Mehran's commits get built. To test on
+a phone: push my branch, tell Mehran, Mehran runs `vercel` on it and sends
+back a preview URL. Open a PR when it's ready and Mehran merges it with a
+merge commit. Never push to main directly.
+
+Start with milestone 1. Push to a branch and tell me so I can ask Mehran for
+a preview URL to test the camera on my phone.
 ```
 
 ---
@@ -91,7 +98,9 @@ test the camera on my phone.
 ## Shared rules both prompts assume
 
 - `main` is always demo-able.
-- Branches: `yourname/feature`. Pull before push.
+- Branches: `yourname/feature`. Pull before push. PRs into `main`, merged by
+  Mehran (Vercel Hobby only builds Mehran's commits). Ask Mehran for a
+  preview URL when you need to test on a phone.
 - No API keys in the repo. `.env.local` only.
 - Scope is locked in `docs/decisions.md`. If Claude suggests a feature not in
   the milestone list, say no.
