@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeft } from "@/components/icons";
 import RoleCard from "@/components/role-card";
 
 export const metadata = { title: "Part history | Machine Memory" };
@@ -8,9 +9,9 @@ export default async function ComponentPage({ params }: {
 }) {
   const { id } = await params;
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-6">
-      <Link href="/scan" className="flex min-h-11 w-fit items-center rounded underline underline-offset-4 hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4">
-        ← Scan another part
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-6 sm:py-10">
+      <Link href="/scan" className="inline-flex min-h-11 w-fit items-center gap-2 text-sm font-medium text-muted hover:text-foreground">
+        <ArrowLeft /> Scan another part
       </Link>
       <RoleCard id={id} />
     </main>

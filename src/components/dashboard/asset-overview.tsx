@@ -3,14 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Asset, Component, MachineEvent, Reading } from "@/lib/types";
+import { ArrowRight, ChevronDown } from "../icons";
+import StatusMark from "../status-mark";
+import { btnGhost, btnSmall, meta } from "../ui";
 import { formatAbsolute, timeAgo } from "./format";
-import { headlineReading, LEVEL_DOT, LEVEL_LABEL, LEVEL_PILL, LEVEL_RANK, type Level, worstLevel, worstOf } from "./status";
-
-const readingStyle: Record<Reading["status"], string> = {
-  ok: "text-green-800 dark:text-green-300",
-  watch: "text-amber-800 dark:text-amber-300",
-  alert: "text-red-800 dark:text-red-300",
-};
+import { headlineReading, LEVEL_LABEL, LEVEL_RANK, LEVEL_TONE, type Level, worstLevel, worstOf } from "./status";
 
 export type AssetGroup = {
   asset: Asset;
@@ -51,24 +48,21 @@ export default function AssetOverview({ groups, readings, nextSteps, events, now
   now: number | null;
 }) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-10">
       {groups.map((group) => (
-        <article key={group.asset.id} aria-labelledby={`asset-${group.asset.id}`} className="overflow-hidden rounded-2xl border border-neutral-200 dark:border-neutral-800">
-          <header className="flex flex-col gap-1 border-b border-neutral-200 px-4 py-3 dark:border-neutral-800">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <h3 id={`asset-${group.asset.id}`} className="text-lg font-semibold tracking-tight">{group.asset.name}</h3>
-              <span className={`inline-flex min-h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold ${LEVEL_PILL[group.level]}`}>
-                <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
-                {LEVEL_LABEL[group.level]}
-              </span>
+        <article key={group.asset.id} aria-labelledby={`asset-${group.asset.id}`}>
+          <header className="flex flex-col gap-1.5 pb-3">
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <h3 id={`asset-${group.asset.id}`} className="text-xl font-semibold tracking-tight">{group.asset.name}</h3>
+              <StatusMark level={group.level} className="text-sm" />
             </div>
-            <p className="text-sm text-neutral-600 dark:text-neutral-300">
-              {group.asset.model} · {group.asset.hours.toLocaleString("en-US")} h · {group.components.length} {group.components.length === 1 ? "part" : "parts"}
+            <p className={meta}>
+              {group.asset.model} · <span className="tabular-nums">{group.asset.hours.toLocaleString("en-US")}</span> h · {group.components.length} {group.components.length === 1 ? "part" : "parts"}
               {group.unknown > 0 && group.level !== "none" ? ` · ${group.unknown} without readings` : ""}
               {group.lastEvent ? <> · last activity <time dateTime={group.lastEvent.created_at} title={formatAbsolute(group.lastEvent.created_at)} suppressHydrationWarning>{timeAgo(group.lastEvent.created_at, now)}</time></> : " · no activity on record"}
             </p>
           </header>
-          <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
+          <ul className="border-t border-line">
             {group.components.map((part) => (
               <ComponentRow key={part.component.id} component={part.component} level={part.level} readings={readings[part.component.id] ?? []} nextStep={nextSteps[part.component.id]} events={events.filter((e) => e.component_id === part.component.id).slice(0, 3)} lastEvent={part.lastEvent} now={now} />
             ))}
@@ -92,59 +86,59 @@ function ComponentRow({ component, level, readings, nextStep, events, lastEvent,
   const head = headlineReading(readings);
   const detailId = `part-${component.id}-detail`;
   return (
-    <li>
-      <button type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((v) => !v)} className="flex min-h-14 w-full cursor-pointer items-start gap-3 px-4 py-3 text-left hover:bg-neutral-50 focus-visible:outline-2 focus-visible:-outline-offset-2 dark:hover:bg-neutral-900">
-        <span aria-hidden="true" className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${LEVEL_DOT[level]}`} />
+    <li className="border-b border-line">
+      <button type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((v) => !v)} className="flex min-h-14 w-full cursor-pointer items-start gap-3 py-3.5 text-left hover:bg-surface sm:-mx-3 sm:w-[calc(100%+1.5rem)] sm:px-3">
+        <span aria-hidden="true" className={`mt-[7px] h-2 w-2 shrink-0 rounded-full ${LEVEL_TONE[level]} ${level === "none" ? "border border-current" : "bg-current"}`} />
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-medium">{component.name}</span>
-            <span className="text-sm text-neutral-600 dark:text-neutral-300">{component.location}</span>
+            <span className="text-sm text-muted">{component.location}</span>
           </span>
-          <span className="mt-0.5 block text-sm text-neutral-600 dark:text-neutral-300">
+          <span className="mt-0.5 block text-sm text-muted">
             <span className="sr-only">{LEVEL_LABEL[level]}. </span>
-            {head ? <><span className={level === "ok" ? "" : `font-medium ${readingStyle[head.status]}`}>{head.label} {head.value}</span>{level === "ok" ? "" : `, ${LEVEL_LABEL[level].toLowerCase()}`}</> : <span className="italic">No readings for this part</span>}
+            {head ? <><span className={level === "ok" ? "" : `font-medium ${LEVEL_TONE[head.status]}`}>{head.label} <span className="tabular-nums">{head.value}</span></span>{level === "ok" ? "" : `, ${LEVEL_LABEL[level].toLowerCase()}`}</> : <span>No readings for this part</span>}
             {lastEvent ? <> · {lastEvent.type} <time dateTime={lastEvent.created_at} title={formatAbsolute(lastEvent.created_at)} suppressHydrationWarning>{timeAgo(lastEvent.created_at, now)}</time></> : ""}
           </span>
         </span>
-        <svg aria-hidden="true" viewBox="0 0 20 20" className={`mt-1 h-5 w-5 shrink-0 text-neutral-500 transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8l5 5 5-5" /></svg>
+        <ChevronDown className={`mt-1.5 h-4 w-4 shrink-0 text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div id={detailId} className="flex flex-col gap-4 px-4 pb-4 pl-9.5 text-sm">
-          <div className="border-l-2 border-amber-400 pl-3 dark:border-amber-500">
-            <p className="text-xs font-bold uppercase tracking-wider text-neutral-600 dark:text-neutral-300">Next step</p>
-            <p className="mt-1 font-medium leading-snug">{nextStep ?? "No recommendation yet. Open the card to generate one."}</p>
+        <div id={detailId} className="flex flex-col gap-6 pb-5 pl-5 text-sm">
+          <div>
+            <p className="flex items-center gap-2 text-xs font-semibold"><span aria-hidden="true" className="h-2 w-2 bg-accent" />Next step</p>
+            <p className="mt-1.5 max-w-[48ch] text-base font-medium leading-snug">{nextStep ?? "No recommendation yet. Open the card to generate one."}</p>
           </div>
           <div>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <p className="font-semibold">Readings</p>
-              <p className="text-xs text-neutral-600 dark:text-neutral-300">{readings.length ? "Simulated feed, no timestamp" : ""}</p>
+              {readings.length > 0 && <p className="text-xs text-muted">Simulated feed</p>}
             </div>
             {readings.length ? (
-              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+              <dl className="mt-2 grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-3">
                 {readings.map((r, i) => (
-                  <div key={`${r.label}-${i}`} className="min-w-0">
-                    <dt className="text-neutral-600 dark:text-neutral-300">{r.label}</dt>
-                    <dd className={`font-mono font-semibold ${readingStyle[r.status]}`}>{r.value}<span className="ml-1.5 text-xs font-sans font-bold uppercase">{r.status}</span></dd>
+                  <div key={`${r.label}-${i}`} className="min-w-0 bg-background px-3 py-2.5">
+                    <dt className="text-muted">{r.label}</dt>
+                    <dd className={`mt-1 flex flex-wrap items-baseline gap-x-2 ${LEVEL_TONE[r.status]}`}><span className="font-mono font-medium tabular-nums text-foreground">{r.value}</span><span className="text-xs font-semibold capitalize">{r.status}</span></dd>
                   </div>
                 ))}
               </dl>
-            ) : <p className="mt-1 text-neutral-600 dark:text-neutral-300">This part has no telemetry. Status comes from notes only.</p>}
+            ) : <p className="mt-1 text-muted">This part has no telemetry. Status comes from notes only.</p>}
           </div>
           <div>
             <p className="font-semibold">Recent history</p>
             {events.length ? (
-              <ol className="mt-2 flex flex-col gap-2">
+              <ol className="mt-1 border-t border-line">
                 {events.map((e) => (
-                  <li key={e.id} className="flex flex-col gap-0.5">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">{e.type} · {e.author_role} · <time dateTime={e.created_at} suppressHydrationWarning>{formatAbsolute(e.created_at)}</time></span>
-                    <span>{e.summary}</span>
+                  <li key={e.id} className="border-b border-line py-2.5">
+                    <p className="leading-snug">{e.summary}</p>
+                    <p className="mt-0.5 text-xs text-muted"><span className="capitalize">{e.type}</span> · <span className="capitalize">{e.author_role}</span> · <time dateTime={e.created_at} suppressHydrationWarning>{formatAbsolute(e.created_at)}</time></p>
                   </li>
                 ))}
               </ol>
-            ) : <p className="mt-1 text-neutral-600 dark:text-neutral-300">No events recorded for this part yet.</p>}
+            ) : <p className="mt-1 text-muted">No events recorded for this part yet.</p>}
           </div>
-          <Link href={`/components/${component.id}`} className="inline-flex min-h-11 w-fit items-center rounded-full border border-neutral-300 px-4 font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-neutral-700 dark:hover:bg-neutral-800">
-            Open full card →
+          <Link href={`/components/${component.id}`} className={`${btnGhost} ${btnSmall} w-fit`}>
+            Open full card <ArrowRight />
           </Link>
         </div>
       )}

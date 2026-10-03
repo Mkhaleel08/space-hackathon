@@ -1,34 +1,37 @@
 import Link from "next/link";
 import CameraScanner from "@/components/camera-scanner";
+import { ArrowLeft, ArrowRight } from "@/components/icons";
+import { h1, h2, meta, section } from "@/components/ui";
 
 export const metadata = { title: "Scan a part | Machine Memory" };
 
+const PARTS = [
+  ["hyd-pump", "Main hydraulic pump"],
+  ["boom-cyl", "Boom cylinder"],
+  ["engine-air", "Engine air filter"],
+  ["track-left", "Left track and final drive"],
+] as const;
+
 export default function ScanPage() {
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 p-6">
-      <Link href="/" className="flex min-h-11 w-fit items-center rounded underline underline-offset-4 hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4">
-        Machine Memory
+    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-10 px-6 py-6 sm:py-10">
+      <Link href="/" className="inline-flex min-h-11 w-fit items-center gap-2 text-sm font-medium text-muted hover:text-foreground">
+        <ArrowLeft /> Machine Memory
       </Link>
       <header>
-        <h1 className="text-3xl font-semibold">Scan a part</h1>
-        <p className="mt-2 text-neutral-600 dark:text-neutral-300">
-          Open your camera and point it at a component’s QR code.
-        </p>
+        <h1 className={h1}>Scan a part</h1>
+        <p className={`${meta} mt-2 text-base`}>Open the camera and point it at the label on the part.</p>
       </header>
       <CameraScanner />
-      <section aria-labelledby="choose-part-heading">
-        <h2 id="choose-part-heading" className="text-lg font-semibold">Or choose a part</h2>
-        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Open its history without using the camera.</p>
-        <ul className="mt-3 grid gap-2">
-          {[
-            ["hyd-pump", "Main hydraulic pump"],
-            ["boom-cyl", "Boom cylinder"],
-            ["engine-air", "Engine air filter"],
-            ["track-left", "Left track and final drive"],
-          ].map(([id, name]) => (
-            <li key={id}>
-              <Link href={`/components/${id}`} className="flex min-h-14 items-center justify-between gap-3 rounded-xl border border-neutral-300 px-4 py-3 hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-neutral-700 dark:hover:bg-neutral-800">
-                <span>{name}</span><span aria-hidden="true">→</span>
+      <section aria-labelledby="choose-part-heading" className={section}>
+        <h2 id="choose-part-heading" className={h2}>Or choose a part</h2>
+        <p className={`${meta} mt-1`}>Open its history without the camera.</p>
+        <ul className="mt-4 border-t border-line">
+          {PARTS.map(([id, name]) => (
+            <li key={id} className="border-b border-line">
+              <Link href={`/components/${id}`} className="flex min-h-14 items-center justify-between gap-3 py-3 font-medium hover:text-muted">
+                <span>{name}</span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-muted" />
               </Link>
             </li>
           ))}

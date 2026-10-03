@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Html5Qrcode } from "html5-qrcode";
+import { btnPrimary, meta } from "./ui";
 
 type CameraState = "idle" | "opening" | "running" | "stopping" | "error";
 
@@ -131,30 +132,27 @@ export default function CameraScanner() {
 
   return (
     <section aria-label="Component camera" className="flex flex-col gap-4">
-      <div className="relative aspect-[3/4] max-h-[45svh] overflow-hidden rounded-xl bg-neutral-900">
+      <div className={`relative aspect-[3/4] max-h-[45svh] overflow-hidden rounded-ctl border border-line ${active ? "bg-black" : "bg-surface"}`}>
         <div id="component-camera" className="h-full w-full [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
         {!active && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8 text-center text-neutral-200">
-            {state === "opening" ? "Allow camera access when your browser asks." : "Your camera preview will appear here."}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8 text-center text-sm text-muted">
+            {state === "opening" ? "Allow camera access when your browser asks." : "The camera preview appears here."}
           </div>
         )}
       </div>
-      <p role="status" className="min-h-12 break-words text-neutral-600 dark:text-neutral-300">
-        {state === "opening" ? "Opening camera…" : state === "stopping" ? "Stopping camera…" : active ? componentId ? `Detected component: ${componentId}` : "Camera is ready. Hold a QR code in view." : "Tap Open camera to begin."}
+      <p role="status" className={`${meta} min-h-5 break-words`}>
+        {state === "opening" ? "Opening camera…" : state === "stopping" ? "Stopping camera…" : active ? componentId ? `Detected part: ${componentId}` : "Camera is on. Hold a label in view." : "Uses the rear camera when there is one."}
       </p>
-      {error && <p role="alert" className="text-red-700 dark:text-red-300">{error}</p>}
+      {error && <p role="alert" className="text-sm text-alert">{error}</p>}
       <button
         type="button"
         onClick={active ? stopCamera : openCamera}
         disabled={waiting}
         aria-busy={waiting}
-        className="min-h-14 cursor-pointer rounded-full bg-black px-6 py-4 text-lg font-medium text-white hover:bg-neutral-800 active:bg-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current disabled:cursor-wait disabled:opacity-60 dark:bg-white dark:text-black dark:hover:bg-neutral-200"
+        className={`${btnPrimary} min-h-14 text-lg disabled:cursor-wait`}
       >
         {active ? "Stop camera" : state === "error" ? "Try camera again" : "Open camera"}
       </button>
-      <p className="text-sm text-neutral-600 dark:text-neutral-300">
-        Your rear camera is used when available. Tap Stop camera when you finish scanning.
-      </p>
     </section>
   );
 }

@@ -3,6 +3,8 @@ import TagImage from "@/components/dashboard/tag-image";
 import { listAssets, listComponents } from "@/lib/server/data";
 import { tagsOrFallback } from "@/lib/server/tags";
 import PrintButton from "./print-button";
+import { ArrowLeft } from "@/components/icons";
+import { h1, meta } from "@/components/ui";
 
 export const metadata = { title: "AprilTag labels | Machine Memory" };
 export const dynamic = "force-dynamic";
@@ -19,13 +21,13 @@ export default async function LabelsPage({ searchParams }: { searchParams: Promi
     .sort((a, b) => a.tag.tag_id - b.tag.tag_id);
 
   return (
-    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 p-6 print:max-w-none print:gap-0 print:p-0">
-      <div className="flex flex-col gap-3 print:hidden">
-        <Link href="/dashboard" className="flex min-h-11 w-fit items-center rounded underline underline-offset-4 hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-4">← Operator dashboard</Link>
-        <div className="flex flex-wrap items-end justify-between gap-3">
+    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-6 py-6 sm:py-10 print:max-w-none print:gap-0 print:p-0">
+      <div className="flex flex-col gap-8 print:hidden">
+        <Link href="/dashboard" className="inline-flex min-h-11 w-fit items-center gap-2 text-sm font-medium text-muted hover:text-foreground"><ArrowLeft /> Operator dashboard</Link>
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight">AprilTag labels</h1>
-            <p className="mt-1 text-neutral-600 dark:text-neutral-300">
+            <h1 className={h1}>AprilTag labels</h1>
+            <p className={`${meta} mt-1.5 max-w-[60ch] text-base`}>
               {labels.length} {labels.length === 1 ? "label" : "labels"}. Print at 100% on matte paper; each tag is 60 mm. Cut on the dashed lines and keep the white border, it is part of the marker.
             </p>
           </div>
@@ -33,13 +35,13 @@ export default async function LabelsPage({ searchParams }: { searchParams: Promi
         </div>
       </div>
       {labels.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-neutral-300 px-4 py-8 text-center text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+        <p className="border-y border-line py-10 text-center text-muted">
           {only ? "That part has no tag yet. Assign one from the dashboard." : "No tags assigned yet."}
         </p>
       ) : (
         <ul className="grid grid-cols-1 gap-5 sm:grid-cols-2 print:grid-cols-2 print:gap-4 print:p-4">
           {labels.map(({ tag, component }) => (
-            <li key={tag.tag_id} className="break-inside-avoid rounded-md border-2 border-dashed border-neutral-400 bg-white p-4 text-center text-neutral-900">
+            <li key={tag.tag_id} className="break-inside-avoid border border-dashed border-neutral-400 bg-white p-4 text-center text-neutral-900">
               <div className="mx-auto h-[60mm] w-[60mm]">
                 <TagImage id={tag.tag_id} className="block h-full w-full" title={`AprilTag ${tag.tag_id} for ${component.name}`} />
               </div>

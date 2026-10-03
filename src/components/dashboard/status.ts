@@ -13,18 +13,12 @@ export const LEVEL_LABEL: Record<Level, string> = {
   none: "No readings",
 };
 
-export const LEVEL_PILL: Record<Level, string> = {
-  ok: "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200",
-  watch: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
-  alert: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
-  none: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
-};
-
-export const LEVEL_DOT: Record<Level, string> = {
-  ok: "bg-green-600 dark:bg-green-400",
-  watch: "bg-amber-500 dark:bg-amber-400",
-  alert: "bg-red-600 dark:bg-red-400",
-  none: "border-2 border-neutral-400 bg-transparent dark:border-neutral-500",
+/** Text colour for a status mark. Never a fill: colour is a signal, not a surface. */
+export const LEVEL_TONE: Record<Level, string> = {
+  ok: "text-ok",
+  watch: "text-watch",
+  alert: "text-alert",
+  none: "text-muted",
 };
 
 export function worstOf(readings: Reading[] | undefined): Level {

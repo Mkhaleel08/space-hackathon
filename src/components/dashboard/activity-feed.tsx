@@ -5,16 +5,18 @@ import type { FormEvent } from "react";
 import Link from "next/link";
 import { OPERATOR_PIN_HEADER } from "@/lib/operator";
 import type { Asset, Component, MachineEvent } from "@/lib/types";
+import { ArrowRight, ChevronDown } from "../icons";
+import { btnDanger, btnGhost, btnSmall, field, fieldLabel } from "../ui";
 import { formatAbsolute, timeAgo } from "./format";
 import { forgetPin, loadPin, savePin } from "./operator-pin";
 
 const PAGE = 25;
 
-const typeStyle: Record<MachineEvent["type"], string> = {
-  fault: "text-red-700 dark:text-red-300",
-  repair: "text-green-800 dark:text-green-300",
-  inspection: "text-neutral-600 dark:text-neutral-300",
-  note: "text-amber-800 dark:text-amber-300",
+const typeTone: Record<MachineEvent["type"], string> = {
+  fault: "text-alert",
+  repair: "text-ok",
+  inspection: "text-muted",
+  note: "text-foreground",
 };
 
 export default function ActivityFeed({ events, componentsById, assetsById, now, emptyMessage, onDeleted }: {
@@ -26,11 +28,11 @@ export default function ActivityFeed({ events, componentsById, assetsById, now, 
   onDeleted: (event: MachineEvent, component: Component | undefined) => void;
 }) {
   const [shown, setShown] = useState(PAGE);
-  if (!events.length) return <p className="rounded-2xl border border-dashed border-neutral-300 px-4 py-8 text-center text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">{emptyMessage}</p>;
+  if (!events.length) return <p className="border-y border-line py-10 text-center text-muted">{emptyMessage}</p>;
   const rest = events.length - shown;
   return (
-    <div className="flex flex-col gap-3">
-      <ol className="divide-y divide-neutral-200 overflow-hidden rounded-2xl border border-neutral-200 dark:divide-neutral-800 dark:border-neutral-800">
+    <div className="flex flex-col gap-4">
+      <ol className="border-t border-line">
         {events.slice(0, shown).map((event) => {
           const component = componentsById.get(event.component_id);
           const asset = component ? assetsById.get(component.asset_id) : undefined;
@@ -38,7 +40,7 @@ export default function ActivityFeed({ events, componentsById, assetsById, now, 
         })}
       </ol>
       {rest > 0 && (
-        <button type="button" onClick={() => setShown((n) => n + PAGE)} className="min-h-11 cursor-pointer self-center rounded-full border border-neutral-300 px-5 text-sm font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-neutral-700 dark:hover:bg-neutral-800">
+        <button type="button" onClick={() => setShown((n) => n + PAGE)} className={`${btnGhost} ${btnSmall} self-start`}>
           Show {Math.min(PAGE, rest)} more
         </button>
       )}
@@ -57,32 +59,32 @@ function ActivityItem({ event, component, asset, now, onDeleted }: {
   const [confirming, setConfirming] = useState(false);
   const detailId = `event-${event.id}-detail`;
   return (
-    <li>
-      <button type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((v) => !v)} className="flex min-h-14 w-full cursor-pointer flex-col gap-1 px-4 py-3 text-left hover:bg-neutral-50 focus-visible:outline-2 focus-visible:-outline-offset-2 dark:hover:bg-neutral-900">
-        <span className="flex w-full items-baseline justify-between gap-3">
-          <span className={`text-xs font-semibold uppercase tracking-wide ${typeStyle[event.type]}`}>{event.type}</span>
-          <time dateTime={event.created_at} title={formatAbsolute(event.created_at)} suppressHydrationWarning className="shrink-0 text-xs text-neutral-600 dark:text-neutral-300">{timeAgo(event.created_at, now)}</time>
+    <li className="border-b border-line">
+      <button type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((v) => !v)} className="flex min-h-14 w-full cursor-pointer items-start gap-3 py-3.5 text-left hover:bg-surface sm:-mx-3 sm:w-[calc(100%+1.5rem)] sm:px-3">
+        <span className="min-w-0 flex-1">
+          <span className="block font-medium leading-snug">{event.summary}</span>
+          <span className="mt-1 block text-sm text-muted">
+            <span className={`font-medium capitalize ${typeTone[event.type]}`}>{event.type}</span> · {component?.name ?? event.component_id}{asset ? ` · ${asset.name}` : ""} ·{" "}
+            <time dateTime={event.created_at} title={formatAbsolute(event.created_at)} suppressHydrationWarning>{timeAgo(event.created_at, now)}</time>
+          </span>
         </span>
-        <span className="font-medium leading-snug">{event.summary}</span>
-        <span className="text-sm text-neutral-600 dark:text-neutral-300">
-          {component?.name ?? event.component_id}{asset ? ` · ${asset.name}` : ""} · {event.author_role}
-        </span>
+        <ChevronDown className={`mt-1.5 h-4 w-4 shrink-0 text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div id={detailId} className="flex flex-col gap-3 px-4 pb-4 text-sm">
+        <div id={detailId} className="flex flex-col gap-4 pb-5 text-sm">
           {event.detail && event.detail.trim() !== event.summary.trim() ? (
-            <blockquote className="whitespace-pre-wrap border-l-2 border-neutral-300 pl-3 leading-relaxed text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">{event.detail}</blockquote>
-          ) : <p className="text-neutral-600 dark:text-neutral-300">No detail beyond the summary was recorded.</p>}
-          <p className="text-xs text-neutral-600 dark:text-neutral-300">
-            Recorded <time dateTime={event.created_at} suppressHydrationWarning>{formatAbsolute(event.created_at)}</time>{component ? ` · ${component.location}` : ""}
+            <p className="max-w-[65ch] whitespace-pre-wrap leading-relaxed text-muted">{event.detail}</p>
+          ) : <p className="text-muted">No detail beyond the summary was recorded.</p>}
+          <p className="text-xs text-muted">
+            Recorded <time dateTime={event.created_at} suppressHydrationWarning>{formatAbsolute(event.created_at)}</time> by the <span className="capitalize">{event.author_role.toLowerCase()}</span>{component ? ` · ${component.location}` : ""}
           </p>
           <div className="flex flex-wrap items-center justify-between gap-3">
             {component ? (
-              <Link href={`/components/${component.id}`} className="inline-flex min-h-11 w-fit items-center rounded-full border border-neutral-300 px-4 font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-neutral-700 dark:hover:bg-neutral-800">
-                Open {component.name} →
+              <Link href={`/components/${component.id}`} className={`${btnGhost} ${btnSmall}`}>
+                Open {component.name} <ArrowRight />
               </Link>
             ) : <span />}
-            <button type="button" onClick={() => setConfirming(true)} className="min-h-11 cursor-pointer rounded-full px-4 font-medium text-red-700 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-red-300 dark:hover:bg-red-950/40">
+            <button type="button" onClick={() => setConfirming(true)} className={`${btnGhost} ${btnSmall} text-alert hover:border-alert`}>
               Delete this {event.type}…
             </button>
           </div>
@@ -94,8 +96,6 @@ function ActivityItem({ event, component, asset, now, onDeleted }: {
     </li>
   );
 }
-
-const dialogButton = "min-h-12 cursor-pointer rounded-full px-5 font-medium focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-wait disabled:opacity-60";
 
 function DeleteDialog({ event, component, asset, onClose, onDeleted }: {
   event: MachineEvent;
@@ -156,29 +156,29 @@ function DeleteDialog({ event, component, asset, onClose, onDeleted }: {
   }
 
   return (
-    <dialog ref={dialog} onCancel={(e) => { e.preventDefault(); if (!busy) onClose(); }} onClose={onClose} aria-labelledby={titleId} className="m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-neutral-300 bg-white p-6 text-neutral-950 backdrop:bg-black/50 dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100">
-      <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <h2 id={titleId} className="text-xl font-semibold">Delete this {event.type}?</h2>
-        <div className="rounded-xl border border-neutral-200 p-3 text-sm dark:border-neutral-800">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">
-            {event.type} · {event.author_role} · <time dateTime={event.created_at}>{formatAbsolute(event.created_at)}</time>
+    <dialog ref={dialog} onCancel={(e) => { e.preventDefault(); if (!busy) onClose(); }} onClose={onClose} aria-labelledby={titleId} className="m-auto w-[calc(100%-2rem)] max-w-md rounded-ctl border border-line bg-background p-6 text-foreground backdrop:bg-black/60">
+      <form onSubmit={submit} noValidate className="flex flex-col gap-5">
+        <h2 id={titleId} className="text-xl font-semibold tracking-tight">Delete this {event.type}?</h2>
+        <div className="border-y border-line py-3 text-sm">
+          <p className="font-medium leading-snug">{event.summary}</p>
+          <p className="mt-1 text-muted">
+            <span className="capitalize">{event.type}</span> · <span className="capitalize">{event.author_role}</span> · <time dateTime={event.created_at}>{formatAbsolute(event.created_at)}</time>
           </p>
-          <p className="mt-1 font-medium">{event.summary}</p>
-          <p className="mt-1 text-neutral-600 dark:text-neutral-300">{component?.name ?? event.component_id}{asset ? ` · ${asset.name}` : ""}</p>
+          <p className="mt-0.5 text-muted">{component?.name ?? event.component_id}{asset ? ` · ${asset.name}` : ""}</p>
         </div>
-        <p className="text-sm text-neutral-700 dark:text-neutral-300">
+        <p className="text-sm text-muted">
           It disappears from this dashboard and from the part’s history, and the part’s summary and next step are rewritten without it. Readings and every other record stay.
         </p>
         {askPin && (
-          <label className="flex flex-col gap-1 text-sm font-medium">
+          <label className={fieldLabel}>
             Operator PIN
-            <input type="password" inputMode="numeric" autoComplete="off" value={pin} onChange={(e) => setPin(e.target.value)} autoFocus className="min-h-11 rounded-lg border border-neutral-400 bg-transparent px-3 font-mono text-base focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-neutral-600" />
+            <input type="password" inputMode="numeric" autoComplete="off" value={pin} onChange={(e) => setPin(e.target.value)} autoFocus className={`${field} font-mono`} />
           </label>
         )}
-        {error && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{error}</p>}
+        {error && <p role="alert" className="text-sm text-alert">{error}</p>}
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button type="button" onClick={onClose} disabled={busy} className={`${dialogButton} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800`}>Keep it</button>
-          <button type="submit" disabled={busy} aria-busy={busy} className={`${dialogButton} bg-red-700 text-white hover:bg-red-800 dark:bg-red-500 dark:text-black dark:hover:bg-red-400`}>{busy ? "Deleting…" : "Delete"}</button>
+          <button type="button" onClick={onClose} disabled={busy} className={btnGhost}>Keep it</button>
+          <button type="submit" disabled={busy} aria-busy={busy} className={`${btnDanger} disabled:cursor-wait`}>{busy ? "Deleting…" : "Delete"}</button>
         </div>
       </form>
     </dialog>

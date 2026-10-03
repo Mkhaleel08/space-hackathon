@@ -39,12 +39,15 @@ export default function RoleCard({ id }: { id: string }) {
   }
   return (
     <>
-      <div role="group" aria-label="View as" className="grid grid-cols-2 gap-1 rounded-full border border-neutral-300 p-1 dark:border-neutral-700">
-        {(["operator", "technician"] as const).map(value => (
-          <button key={value} type="button" aria-pressed={role === value} onClick={() => selectRole(value)} className={`min-h-12 cursor-pointer rounded-full px-3 py-3 font-medium capitalize focus-visible:outline-2 focus-visible:outline-offset-2 ${role === value ? "bg-black text-white dark:bg-white dark:text-black" : "hover:bg-neutral-100 dark:hover:bg-neutral-800"}`}>
-            {value}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <span id="view-as-label" className="text-sm text-muted">View as</span>
+        <div role="group" aria-labelledby="view-as-label" className="grid grid-cols-2 rounded-ctl border border-line p-1">
+          {(["operator", "technician"] as const).map(value => (
+            <button key={value} type="button" aria-pressed={role === value} onClick={() => selectRole(value)} className={`min-h-11 cursor-pointer rounded-[2px] px-5 text-sm font-medium capitalize transition-colors duration-150 ${role === value ? "bg-accent text-accent-ink" : "text-muted hover:text-foreground"}`}>
+              {value}
+            </button>
+          ))}
+        </div>
       </div>
       <ComponentCardLoader key={`${id}:${role}`} id={id} role={role} />
     </>
