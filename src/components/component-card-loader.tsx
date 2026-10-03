@@ -17,8 +17,6 @@ export default function ComponentCardLoader({ id, role }: { id: string; role: Ro
 
   const [savedEventId, setSavedEventId] = useState<string>();
   const savedEvent = useRef<MachineEvent | null>(null);
-  // Bumped when a card arrives after a save, so the new wording visibly changes.
-  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!savedEventId) return;
@@ -70,7 +68,6 @@ export default function ComponentCardLoader({ id, role }: { id: string; role: Ro
             card.recent_events = [confirmed, ...card.recent_events].slice(0, 5);
           }
           setResult({ kind: "ready", card });
-          if (confirmed) setRefreshKey(value => value + 1);
         }
       } catch {
         if (active) {
@@ -92,7 +89,7 @@ export default function ComponentCardLoader({ id, role }: { id: string; role: Ro
         {refreshing && <p className="flex items-center gap-2"><span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-accent" />Re-reading the history and next step…</p>}
         {refreshError && <p role="alert" className="text-alert">Couldn’t refresh the card. The details below may be out of date. <button type="button" onClick={refreshCard} className={`${textLink} text-foreground`}>Refresh card</button></p>}
       </div>
-      <ComponentCard card={result.card} savedEventId={savedEventId} refreshKey={refreshKey} />
+      <ComponentCard card={result.card} savedEventId={savedEventId} />
       <NoteForm id={id} role={role} onSaved={noteSaved} onCheckHistory={refreshCard} />
     </>
   );

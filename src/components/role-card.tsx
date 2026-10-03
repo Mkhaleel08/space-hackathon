@@ -41,10 +41,9 @@ export default function RoleCard({ id }: { id: string }) {
     <>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span id="view-as-label" className="text-sm text-muted">View as</span>
-        <div role="group" aria-labelledby="view-as-label" className="relative grid grid-cols-2 rounded-ctl border border-line p-1">
-          <span aria-hidden="true" className={`pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-[2px] bg-accent transition-transform duration-200 ease-out-expo ${role === "technician" ? "translate-x-full" : ""}`} />
+        <div role="group" aria-labelledby="view-as-label" className="grid grid-cols-2 rounded-ctl border border-line p-1">
           {(["operator", "technician"] as const).map(value => (
-            <button key={value} type="button" aria-pressed={role === value} onClick={() => selectRole(value)} className={`relative min-h-11 cursor-pointer rounded-[2px] px-5 text-sm font-medium capitalize transition-colors duration-200 ${role === value ? "text-accent-ink" : "text-muted hover:text-foreground"}`}>
+            <button key={value} type="button" aria-pressed={role === value} onClick={() => selectRole(value)} className={`min-h-11 cursor-pointer rounded-[2px] px-5 text-sm font-medium capitalize transition-colors duration-150 ${role === value ? "bg-accent text-accent-ink" : "text-muted hover:text-foreground"}`}>
               {value}
             </button>
           ))}

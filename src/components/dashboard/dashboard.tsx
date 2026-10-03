@@ -9,7 +9,6 @@ import { formatAbsolute, useNow } from "./format";
 import { LEVEL_LABEL, type Level, worstOf } from "./status";
 import TagManager from "./tag-manager";
 import { Close } from "../icons";
-import Reveal from "../reveal";
 import { btnGhost, btnSmall, field, h1, h2, meta, section } from "../ui";
 
 type StatusFilter = "all" | Level;
@@ -94,7 +93,7 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
           <div>
             <h1 className={h1}>Operator dashboard</h1>
             <p className={`${meta} mt-1.5`}>
-              {data.assets.length} {data.assets.length === 1 ? "machine" : "machines"}, {data.components.length} parts, {data.events.length} events on record
+              {data.assets.length} {data.assets.length === 1 ? "asset" : "assets"} · {data.components.length} parts · {data.events.length} events on record
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -146,12 +145,12 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
             <h2 id="activity-heading" className={`${h2} shrink-0`}>Recent activity</h2>
             <p className={meta}>Notes, faults, repairs, inspections</p>
           </div>
-          <Reveal open={notice !== ""} className="-mt-6">
-            <div role="status" className="mt-6 flex items-start justify-between gap-3 border border-line bg-surface px-4 py-3 text-sm">
+          {notice && (
+            <div role="status" className="flex items-start justify-between gap-3 border border-line bg-surface px-4 py-3 text-sm">
               <p className="flex items-start gap-2.5"><span aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 bg-accent" />{notice}</p>
-              <button type="button" onClick={() => setNotice("")} aria-label="Dismiss" className="-mr-2 -mt-1 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-ctl text-muted transition-colors duration-150 hover:text-foreground"><Close /></button>
+              <button type="button" onClick={() => setNotice("")} aria-label="Dismiss" className="-mr-2 -mt-1 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-ctl text-muted hover:text-foreground"><Close /></button>
             </div>
-          </Reveal>
+          )}
           <ActivityFeed events={visibleEvents} componentsById={componentsById} assetsById={assetsById} now={now} emptyMessage={data.events.length ? "No activity matches these filters." : "Nothing recorded yet. Notes from the field show up here."} onDeleted={eventDeleted} />
         </section>
       </div>

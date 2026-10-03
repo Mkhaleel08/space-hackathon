@@ -3,17 +3,17 @@ name: Machine Memory
 description: A field tool that reads like a service manual page. Rules, not cards; one yellow action per page.
 colors:
   background: "#ffffff"
-  background-dark: "#000000"
-  foreground: "#000000"
-  foreground-dark: "#ededed"
-  muted: "#5a5a5a"
-  muted-dark: "#a1a1a1"
+  background-dark: "#0c0c0c"
+  foreground: "#111111"
+  foreground-dark: "#f2f2f2"
+  muted: "#5f5f5f"
+  muted-dark: "#a3a3a3"
   line: "#eaeaea"
   line-dark: "#262626"
   surface: "#f6f6f6"
-  surface-dark: "#141414"
+  surface-dark: "#161616"
   accent: "#ffcd11"
-  accent-ink: "#000000"
+  accent-ink: "#111111"
   accent-hover: "#f0bf0a"
   accent-active: "#e3b400"
   ok: "#1f7a3d"
@@ -24,54 +24,34 @@ colors:
   alert-dark: "#f97066"
 typography:
   page-title:
-    fontFamily: "Barlow Semi Condensed, Barlow, ui-sans-serif, sans-serif"
-    fontSize: "1.875rem"
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "1.75rem"
     fontWeight: 600
     lineHeight: 1.15
     letterSpacing: "-0.025em"
   part-name:
-    fontFamily: "Barlow Semi Condensed, Barlow, ui-sans-serif, sans-serif"
-    fontSize: "2.25rem"
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "2rem"
     fontWeight: 600
     lineHeight: 1.1
     letterSpacing: "-0.025em"
   next-step:
-    fontFamily: "Barlow Semi Condensed, Barlow, ui-sans-serif, sans-serif"
-    fontSize: "1.625rem"
-    fontWeight: 600
-    lineHeight: 1.2
-  next-step-wide:
-    fontFamily: "Barlow Semi Condensed, Barlow, ui-sans-serif, sans-serif"
-    fontSize: "1.875rem"
-    fontWeight: 600
-    lineHeight: 1.2
-  memory-line:
-    fontFamily: "Barlow Semi Condensed, Barlow, ui-sans-serif, sans-serif"
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.375rem"
-    fontWeight: 500
+    fontWeight: 600
     lineHeight: 1.375
-  home-title:
-    fontFamily: "Barlow Semi Condensed, Barlow, ui-sans-serif, sans-serif"
-    fontSize: "2.75rem"
-    fontWeight: 600
-    lineHeight: 1
-  home-title-wide:
-    fontFamily: "Barlow Semi Condensed, Barlow, ui-sans-serif, sans-serif"
-    fontSize: "3.25rem"
-    fontWeight: 600
-    lineHeight: 1
   section-heading:
-    fontFamily: "Barlow, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 600
     lineHeight: 1.25
   body:
-    fontFamily: "Barlow, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.5
   meta:
-    fontFamily: "Barlow, ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Geist, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.43
@@ -145,7 +125,7 @@ Tokens live in `src/app/globals.css`; control classes in `src/components/ui.ts`;
 
 **Creative North Star: "The Service Manual Page"**
 
-One neutral ground, 1px rules to divide it, one yellow thing to press. Content is set in Barlow, the DIN-derived face of signage and machine nameplates, with the semi-condensed cut on the part name and the next step; the hierarchy is carried by size and weight, not by boxes, tints or shadows. Ink is black, not a tinted near-black. Every screen is a column of ruled sections; status is a coloured dot and a word, never a fill. Both colour schemes come free from `prefers-color-scheme`; nothing is hard-coded except Cat yellow.
+One neutral ground, 1px rules to divide it, one yellow thing to press. Content is set in Geist and the hierarchy is carried by size and weight, not by boxes, tints or shadows. Every screen is a column of ruled sections; status is a coloured dot and a word, never a fill. Both colour schemes come free from `prefers-color-scheme`; nothing is hard-coded except Cat yellow.
 
 **Key Characteristics:** hairline rules, not cards; yellow once per page; dot + word status; 4px corners; 44px+ tap targets; drawn 20-grid stroke icons; flat everywhere except the camera.
 
@@ -170,13 +150,12 @@ Neutrals do the work; yellow is a signal, status hues are text only. Every token
 
 ## Typography
 
-**Font:** Barlow 400/500/600 (Google, `--font-barlow`, the `font-sans` default). **Display:** Barlow Semi Condensed 500/600 (`--font-barlow-display`, class `font-display`) on the home title, page titles (`h1`), the part name, the next step, the home memory line, and the live view's part name and next step. **Mono:** Geist Mono for measured values only (reading values), always `tabular-nums`. Ids, tag numbers and dates are set in Barlow.
+**Font:** Geist (Google, `--font-geist-sans`) with `ss01`/`cv11` on. **Mono:** Geist Mono for reading values and tag ids, always `tabular-nums`.
 
 ### Hierarchy (as used)
-- **Part name** (display 600, 36px/1.05, tight): the h1 of a part card only.
-- **Page title** (`h1`, display 600, 30px/1.1, tight): every other screen. Home title is 44px, 52px from `sm`.
-- **Next step** (display 600, 26px/1.2, 30px from `sm`, max 30ch): the single recommendation and the largest text on the card.
-- **Memory line** (display 500, 22px): the newest note quoted on the home screen.
+- **Part name** (600, 32px/1.1, tight): the h1 of a part card only.
+- **Page title** (`h1`, 600, 28px/1.15, tight): every other screen. Home hero is a one-off 36/44px.
+- **Next step** (600, 22px, snug, max 32ch): the single recommendation; the loudest body text on a page.
 - **Dialog / asset heading** (600, 20px, tight).
 - **Section heading** (`h2`, 600, 16px): "Readings", "Recent history", "Add a note". Same size as body; weight does the work.
 - **Body** (400, 16px, relaxed when a paragraph, max 65ch). Row summaries are 500.
@@ -188,16 +167,6 @@ Neutrals do the work; yellow is a signal, status hues are text only. Every token
 ## Layout
 
 Single column, centred, `px-6` gutters (dashboard `px-5 sm:px-8`), `py-6 sm:py-10`. Containers: `max-w-lg` (home, scan), `max-w-2xl` (part card), `max-w-6xl` (dashboard, which splits 3fr/2fr at `lg`), `max-w-4xl` (labels). Sections stack with `gap-12` (48px); each starts with `section` (`border-t border-line pt-8`). Heading to first content is `mt-3`; helper copy under a heading is `mt-1`/`mt-1.5`. Lists are `border-t` with `border-b` rows at `py-4` (card) or `py-3.5`, `min-h-14` when tappable (dashboard). Button stacks use `gap-3`, inline groups `gap-2`. Key/value pairs are `grid-cols-[auto_1fr] gap-x-6 gap-y-1`. Readings are a hairline grid (`grid gap-px bg-line border-y`, cells `bg-background`). Tap targets: 48px controls, 56px page primaries, 44px links, 40px toolbar buttons.
-
-## Motion
-
-Feedback and continuity only; nothing moves until the person does something. Easing is `--ease-out` (`cubic-bezier(0.16, 1, 0.3, 1)`, class `ease-out-expo`); durations 100 ms (press), 150 to 200 ms (state and expand/collapse), 180 ms (dialog), 240 to 260 ms (the save payoff). `prefers-reduced-motion` collapses every duration to zero in `globals.css`; the `Reveal` grid still shows and hides content.
-
-- **Expand/collapse:** `src/components/reveal.tsx`, a one-row grid whose track goes `0fr → 1fr` (`.reveal` in `globals.css`); children unmount after the exit. Used for dashboard part rows, activity items, the add-part form and the dashboard notice.
-- **Buttons:** every `ui.ts` button scales to 0.985 for 100 ms on press.
-- **Role toggle:** one yellow indicator translates between the two segments (200 ms).
-- **Dialogs:** `dialog[open]` fades and scales from 0.98 (180 ms); backdrop fades (160 ms).
-- **The save payoff:** the new history row runs `mm-grow` (240 ms) with the yellow "Just saved" tag; when the refreshed card arrives, the next step and summary run `mm-refresh` (a dip to 35% and back over 260 ms).
 
 ## Elevation & Depth
 
@@ -230,9 +199,7 @@ The camera screen is a fixed black ground with white text and glass overlays ove
 - **Do** separate content with `border-t border-line` sections and `border-b` rows; let 48px gaps breathe.
 - **Do** spend yellow once per page, on the primary action, and keep it on the role toggle, dictation state, "Just saved" and the "Next step" square.
 - **Do** keep every tappable thing at least 44px tall and make every hover state also work without hover.
-- **Do** use Geist Mono + `tabular-nums` for measured values (reading values) and `tabular-nums` alone for other aligned numbers (hours).
-- **Do** write meta as a sentence or a two-slot line ("Note by the operator" left, the date right).
-- **Do** animate what the person just did: `Reveal` for expand/collapse, the dialog's own enter, the saved row's `mm-grow`, the refreshed card's `mm-refresh`. Enter and exit ease out (`--ease-out`), under 300 ms.
+- **Do** use Geist Mono + `tabular-nums` for numbers that line up (readings, hours, tag ids).
 
 ### Don't:
 - **Don't** put content in nested cards or rounded tinted boxes; the dashboard notice (`border border-line bg-surface`) is the only bordered box, and it is flat.
@@ -241,5 +208,3 @@ The camera screen is a fixed black ground with white text and glass overlays ove
 - **Don't** write eyebrows, kickers, uppercase or letter-spaced labels above headings.
 - **Don't** use emoji, glyph fonts or icon packages; draw the icon in `icons.tsx`.
 - **Don't** hard-code hex or Tailwind palette colours (`neutral-*`, `red-*`) on page UI; use the tokens so dark mode holds.
-- **Don't** join meta with middle dots (`A · B · C`), set ids or labels in mono, or append an arrow to link or button text. Chevrons mark rows that expand, nothing else.
-- **Don't** animate on page load, on hover, on scroll, or with stagger; no lifts, no shadows, no springs. Motion answers an action.

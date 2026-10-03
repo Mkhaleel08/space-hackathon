@@ -1341,7 +1341,7 @@ const Panel = memo(function Panel({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               {label(card.asset.name)}
-              <h2 className="mt-0.5 line-clamp-2 font-display text-[20px] font-semibold leading-tight">{card.component.name}</h2>
+              <h2 className="mt-0.5 line-clamp-2 text-[19px] font-semibold leading-tight">{card.component.name}</h2>
               <p className="truncate text-xs text-white/70">{card.component.location}</p>
             </div>
             <div className="flex shrink-0 items-start gap-1.5">
@@ -1388,7 +1388,7 @@ const Panel = memo(function Panel({
     return (
       <div ref={setRef} style={glassStyle} className={`${glass} cursor-pointer p-3.5 select-none`} {...tappable}>
         <div className="flex items-center">{label("Next step", "text-amber-200/90")}{more}</div>
-        <p className={`mt-1 font-display text-[17px] font-semibold leading-snug ${expanded ? "" : "line-clamp-3"}`}>{card.next_step}</p>
+        <p className={`mt-1 text-[16px] font-semibold leading-snug ${expanded ? "" : "line-clamp-3"}`}>{card.next_step}</p>
         {expanded && (
           <p className="mt-2 text-[12px] text-white/60">Written for the {card.role} from this part’s history. Switch roles above to change the wording.</p>
         )}

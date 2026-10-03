@@ -1,6 +1,6 @@
 import Link from "next/link";
 import CameraScanner from "@/components/camera-scanner";
-import { ArrowLeft } from "@/components/icons";
+import { ArrowLeft, ArrowRight } from "@/components/icons";
 import { h1, h2, meta, section } from "@/components/ui";
 
 export const metadata = { title: "Scan a part | Machine Memory" };
@@ -29,8 +29,9 @@ export default function ScanPage() {
         <ul className="mt-4 border-t border-line">
           {PARTS.map(([id, name]) => (
             <li key={id} className="border-b border-line">
-              <Link href={`/components/${id}`} className="flex min-h-14 items-center py-3 font-medium transition-colors duration-150 hover:text-muted">
-                {name}
+              <Link href={`/components/${id}`} className="flex min-h-14 items-center justify-between gap-3 py-3 font-medium hover:text-muted">
+                <span>{name}</span>
+                <ArrowRight className="h-4 w-4 shrink-0 text-muted" />
               </Link>
             </li>
           ))}

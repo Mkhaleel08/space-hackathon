@@ -3,8 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Asset, Component, MachineEvent, Reading } from "@/lib/types";
-import { ChevronDown } from "../icons";
-import Reveal from "../reveal";
+import { ArrowRight, ChevronDown } from "../icons";
 import StatusMark from "../status-mark";
 import { btnGhost, btnSmall, meta } from "../ui";
 import { formatAbsolute, timeAgo } from "./format";
@@ -58,9 +57,9 @@ export default function AssetOverview({ groups, readings, nextSteps, events, now
               <StatusMark level={group.level} className="text-sm" />
             </div>
             <p className={meta}>
-              {group.asset.model}, <span className="tabular-nums">{group.asset.hours.toLocaleString("en-US")}</span> hours, {group.components.length} {group.components.length === 1 ? "part" : "parts"}
-              {group.unknown > 0 && group.level !== "none" ? ` (${group.unknown} without readings)` : ""}
-              {group.lastEvent ? <>. Last activity <time dateTime={group.lastEvent.created_at} title={formatAbsolute(group.lastEvent.created_at)} suppressHydrationWarning>{timeAgo(group.lastEvent.created_at, now)}</time>.</> : ". No activity on record."}
+              {group.asset.model} · <span className="tabular-nums">{group.asset.hours.toLocaleString("en-US")}</span> h · {group.components.length} {group.components.length === 1 ? "part" : "parts"}
+              {group.unknown > 0 && group.level !== "none" ? ` · ${group.unknown} without readings` : ""}
+              {group.lastEvent ? <> · last activity <time dateTime={group.lastEvent.created_at} title={formatAbsolute(group.lastEvent.created_at)} suppressHydrationWarning>{timeAgo(group.lastEvent.created_at, now)}</time></> : " · no activity on record"}
             </p>
           </header>
           <ul className="border-t border-line">
@@ -97,14 +96,14 @@ function ComponentRow({ component, level, readings, nextStep, events, lastEvent,
           </span>
           <span className="mt-0.5 block text-sm text-muted">
             <span className="sr-only">{LEVEL_LABEL[level]}. </span>
-            {head ? <><span className={level === "ok" ? "" : `font-medium ${LEVEL_TONE[head.status]}`}>{head.label} <span className="tabular-nums">{head.value}</span></span>{level === "ok" ? "" : `, ${LEVEL_LABEL[level].toLowerCase()}`}.</> : <span>No readings for this part.</span>}
-            {lastEvent ? <> Last <span className="lowercase">{lastEvent.type}</span> <time dateTime={lastEvent.created_at} title={formatAbsolute(lastEvent.created_at)} suppressHydrationWarning>{timeAgo(lastEvent.created_at, now)}</time>.</> : ""}
+            {head ? <><span className={level === "ok" ? "" : `font-medium ${LEVEL_TONE[head.status]}`}>{head.label} <span className="tabular-nums">{head.value}</span></span>{level === "ok" ? "" : `, ${LEVEL_LABEL[level].toLowerCase()}`}</> : <span>No readings for this part</span>}
+            {lastEvent ? <> · {lastEvent.type} <time dateTime={lastEvent.created_at} title={formatAbsolute(lastEvent.created_at)} suppressHydrationWarning>{timeAgo(lastEvent.created_at, now)}</time></> : ""}
           </span>
         </span>
         <ChevronDown className={`mt-1.5 h-4 w-4 shrink-0 text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
-      <Reveal open={open} id={detailId}>
-        <div className="flex flex-col gap-6 pb-5 pl-5 text-sm">
+      {open && (
+        <div id={detailId} className="flex flex-col gap-6 pb-5 pl-5 text-sm">
           <div>
             <p className="flex items-center gap-2 text-xs font-semibold"><span aria-hidden="true" className="h-2 w-2 bg-accent" />Next step</p>
             <p className="mt-1.5 max-w-[48ch] text-base font-medium leading-snug">{nextStep ?? "No recommendation yet. Open the card to generate one."}</p>
@@ -132,17 +131,17 @@ function ComponentRow({ component, level, readings, nextStep, events, lastEvent,
                 {events.map((e) => (
                   <li key={e.id} className="border-b border-line py-2.5">
                     <p className="leading-snug">{e.summary}</p>
-                    <p className="mt-0.5 flex flex-wrap justify-between gap-x-3 text-xs text-muted"><span><span className="capitalize">{e.type}</span> by the {e.author_role}</span><time dateTime={e.created_at} suppressHydrationWarning>{formatAbsolute(e.created_at)}</time></p>
+                    <p className="mt-0.5 text-xs text-muted"><span className="capitalize">{e.type}</span> · <span className="capitalize">{e.author_role}</span> · <time dateTime={e.created_at} suppressHydrationWarning>{formatAbsolute(e.created_at)}</time></p>
                   </li>
                 ))}
               </ol>
             ) : <p className="mt-1 text-muted">No events recorded for this part yet.</p>}
           </div>
           <Link href={`/components/${component.id}`} className={`${btnGhost} ${btnSmall} w-fit`}>
-            Open full card
+            Open full card <ArrowRight />
           </Link>
         </div>
-      </Reveal>
+      )}
     </li>
   );
 }
