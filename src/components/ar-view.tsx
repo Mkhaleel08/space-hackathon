@@ -1038,7 +1038,7 @@ export default function ArView() {
       )}
 
       {/* Top bar */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 bg-gradient-to-b from-black/70 to-transparent p-4 pt-[max(1rem,env(safe-area-inset-top))]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 p-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <Link href="/" className="pointer-events-auto flex min-h-11 items-center rounded-full bg-black/50 px-4 font-medium backdrop-blur focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
           ← Machine Memory
         </Link>
@@ -1049,7 +1049,7 @@ export default function ArView() {
               type="button"
               aria-pressed={role === v}
               onClick={() => selectRole(v)}
-              className={`min-h-10 cursor-pointer rounded-full px-3 text-sm font-medium capitalize focus-visible:outline-2 focus-visible:outline-white ${role === v ? "bg-white text-black" : "text-white"}`}
+              className={`min-h-10 cursor-pointer rounded-full px-3 text-sm font-medium capitalize focus-visible:outline-2 focus-visible:outline-white ${role === v ? "bg-[#ffcd11] text-black" : "text-white"}`}
             >
               {v}
             </button>

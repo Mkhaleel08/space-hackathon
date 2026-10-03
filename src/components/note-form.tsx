@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { MachineEvent, NewNoteRequest, NewNoteResponse, Role } from "@/lib/types";
+import { Mic } from "./icons";
+import { btnGhost, btnPrimary, btnSecondary, field as fieldStyle, h2, meta, section } from "./ui";
 
 // Browser speech recognition is not included in TypeScript's DOM types.
 type Recognition = {
@@ -21,7 +23,6 @@ function speechConstructor() {
 const subscribe = () => () => {};
 const speechSupported = () => Boolean(speechConstructor());
 const serverSpeechSupported = () => false;
-const buttonStyle = "min-h-14 cursor-pointer rounded-full px-6 py-4 font-medium focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-not-allowed disabled:opacity-50";
 
 export default function NoteForm({ id, role, onSaved, onCheckHistory }: {
   id: string; role: Role; onSaved: (event: MachineEvent) => void; onCheckHistory: () => void;
@@ -164,30 +165,37 @@ export default function NoteForm({ id, role, onSaved, onCheckHistory }: {
     }
   }
 
+  const hasText = text.trim().length > 0;
   return (
-    <section aria-labelledby="note-heading" className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
-      <dialog ref={leaveDialog} onCancel={event => { event.preventDefault(); setLeaveHref(null); }} aria-labelledby="leave-note-heading" aria-describedby="leave-note-description" className="m-auto w-[calc(100%-3rem)] max-w-sm rounded-xl border border-neutral-300 bg-white p-6 text-neutral-950 backdrop:bg-black/50 dark:bg-neutral-950 dark:text-neutral-100">
-        <h2 id="leave-note-heading" className="text-xl font-semibold">{saving ? "Your note is saving" : "Leave this note?"}</h2>
-        <p id="leave-note-description" className="mt-3">{saving ? "Wait for the save to finish before leaving this part." : "Your unsaved text will be lost if you continue."}</p>
-        <div className="mt-5 flex flex-col gap-3">
-          <button type="button" onClick={() => setLeaveHref(null)} className={`${buttonStyle} bg-black text-white dark:bg-white dark:text-black`}>Keep working</button>
-          <button type="button" disabled={saving} onClick={() => { if (leaveHref) { const href = leaveHref; setLeaveHref(null); if (href === "#role-change") pendingRoleChange.current?.(); else router.push(href); } }} className={`${buttonStyle} border border-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800`}>{leaveHref === "#role-change" ? "Discard note and switch role" : "Leave without saving"}</button>
+    <section aria-labelledby="note-heading" className={section}>
+      <dialog ref={leaveDialog} onCancel={event => { event.preventDefault(); setLeaveHref(null); }} aria-labelledby="leave-note-heading" aria-describedby="leave-note-description" className="m-auto w-[calc(100%-3rem)] max-w-sm rounded-ctl border border-line bg-background p-6 text-foreground backdrop:bg-black/60">
+        <h2 id="leave-note-heading" className="text-xl font-semibold tracking-tight">{saving ? "Your note is saving" : "Leave this note?"}</h2>
+        <p id="leave-note-description" className="mt-3 text-muted">{saving ? "Wait for the save to finish before leaving this part." : "Your unsaved text will be lost if you continue."}</p>
+        <div className="mt-6 flex flex-col gap-3">
+          <button type="button" onClick={() => setLeaveHref(null)} className={btnPrimary}>Keep working</button>
+          <button type="button" disabled={saving} onClick={() => { if (leaveHref) { const href = leaveHref; setLeaveHref(null); if (href === "#role-change") pendingRoleChange.current?.(); else router.push(href); } }} className={btnGhost}>{leaveHref === "#role-change" ? "Discard note and switch role" : "Leave without saving"}</button>
         </div>
       </dialog>
-      <h2 id="note-heading" className="text-lg font-semibold">Leave a note</h2>
-      <p id="note-help" className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">Record what you noticed or worked on for the next person. Saving as {role}.</p>
-      <form noValidate onSubmit={save} className="mt-4 flex flex-col gap-3">
-        {supported ? <button type="button" onClick={dictate} disabled={saving} aria-pressed={listening} className={`${buttonStyle} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800`}>
-          {listening ? "Stop dictation" : "Dictate note"}
-        </button> : <p className="text-sm text-neutral-600 dark:text-neutral-300">Type your note below. Voice dictation isn’t available in this browser.</p>}
-        <p role="status" className="min-h-5 text-sm text-neutral-600 dark:text-neutral-300">{listening ? "Listening… Stop dictation to review and save." : supported ? "Review dictated text before saving." : ""}</p>
-        {voiceError && <p role="alert" className="text-sm text-red-700 dark:text-red-300">{voiceError}</p>}
-        <label htmlFor="inspection-note" className="font-medium">Inspection note</label>
-        <textarea ref={field} id="inspection-note" value={text} onChange={event => { setText(event.target.value); setSaved(false); setInvalid(false); }} readOnly={listening || saving} rows={6} aria-invalid={invalid} aria-describedby={`note-help${error ? " note-error" : ""}`} className="min-h-40 w-full resize-none rounded-lg border border-neutral-400 bg-transparent p-3 leading-relaxed focus-visible:outline-2 focus-visible:outline-offset-2 read-only:opacity-70 dark:border-neutral-600" />
-        {error && <p id="note-error" role="alert" className="text-sm text-red-700 dark:text-red-300">{error}</p>}
-        {uncertain && <button type="button" onClick={onCheckHistory} className={`${buttonStyle} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800`}>Check recent history</button>}
-        <button type="submit" disabled={saving || listening} aria-busy={saving} className={`${buttonStyle} bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200`}>{saving ? "Saving note…" : "Save note"}</button>
-        <p role="status" className="min-h-6 text-base font-medium text-green-800 dark:text-green-300">{saved ? "Note saved to this part’s history." : ""}</p>
+      <h2 id="note-heading" className={h2}>Add a note</h2>
+      <p id="note-help" className={`${meta} mt-1`}>What you noticed or worked on, for the next person. Saving as {role}.</p>
+      <form noValidate onSubmit={save} className="mt-5 flex flex-col gap-4">
+        <label htmlFor="inspection-note" className="sr-only">Inspection note</label>
+        <textarea ref={field} id="inspection-note" value={text} onChange={event => { setText(event.target.value); setSaved(false); setInvalid(false); }} readOnly={listening || saving} rows={4} placeholder={supported ? "Dictate or type what you found" : "Type what you found"} aria-invalid={invalid} aria-describedby={`note-help${error ? " note-error" : ""}`} className={`${fieldStyle} min-h-28 resize-none py-3 leading-relaxed read-only:opacity-70 ${invalid ? "border-alert" : ""}`} />
+        {listening && <p role="status" className="flex items-center gap-2 text-sm font-medium"><span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-accent" />Listening. Tap Stop when you’re done.</p>}
+        {voiceError && <p role="alert" className="text-sm text-alert">{voiceError}</p>}
+        {error && <p id="note-error" role="alert" className="text-sm text-alert">{error}</p>}
+        <div className="flex flex-col gap-3 sm:flex-row">
+          {supported && (
+            <button type="button" onClick={dictate} disabled={saving} aria-pressed={listening} className={`${listening ? btnPrimary : hasText ? btnGhost : btnSecondary} min-h-14 sm:flex-1`}>
+              <Mic className="h-5 w-5" />
+              {listening ? "Stop dictation" : "Dictate note"}
+            </button>
+          )}
+          <button type="submit" disabled={saving || listening} aria-busy={saving} className={`${hasText || !supported ? btnPrimary : btnGhost} min-h-14 sm:flex-1`}>{saving ? "Saving note…" : "Save note"}</button>
+        </div>
+        {uncertain && <button type="button" onClick={onCheckHistory} className={btnGhost}>Check recent history</button>}
+        {!supported && <p className={meta}>Voice dictation isn’t available in this browser.</p>}
+        <p role="status" className="min-h-6 text-sm font-medium text-ok">{saved ? "Saved to this part’s history." : ""}</p>
       </form>
     </section>
   );

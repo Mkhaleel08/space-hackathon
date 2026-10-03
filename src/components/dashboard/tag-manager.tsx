@@ -8,11 +8,11 @@ import { labelSvgString } from "@/lib/tag-svg";
 import type { Asset, Component, NewComponentRequest, NewComponentResponse, NewTagRequest, TagAssignment } from "@/lib/types";
 import { forgetPin, loadPin, savePin } from "./operator-pin";
 import TagImage from "./tag-image";
+import { btnGhost, btnPrimary, btnSecondary, btnSmall, field, fieldLabel, h2, meta, section } from "../ui";
 
-const button = "min-h-11 cursor-pointer rounded-full px-4 text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-wait disabled:opacity-60";
-const ghost = `${button} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800`;
-const solid = `${button} bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200`;
-const input = "min-h-11 w-full rounded-lg border border-neutral-400 bg-transparent px-3 focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-neutral-600";
+const ghost = `${btnGhost} ${btnSmall} disabled:cursor-wait`;
+const solid = `${btnPrimary} ${btnSmall} disabled:cursor-wait`;
+const input = field;
 
 type Outcome = { kind: "ok"; text: string; componentId: string } | { kind: "error"; text: string } | null;
 
@@ -69,21 +69,21 @@ export default function TagManager({ assets, components, tags, tagsLive, onChang
   }
 
   return (
-    <section aria-labelledby="tags-heading" className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <section aria-labelledby="tags-heading" className={`${section} flex flex-col gap-6`}>
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
-          <h2 id="tags-heading" className="text-lg font-semibold">AprilTags</h2>
-          <p className="text-sm text-neutral-600 dark:text-neutral-300">One 36h11 tag per part. Print at 60 mm on matte paper and keep the white border.</p>
+          <h2 id="tags-heading" className={h2}>AprilTags</h2>
+          <p className={`${meta} mt-1`}>One 36h11 tag per part. Print at 60 mm on matte paper and keep the white border.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/labels" target="_blank" rel="noopener" className={`${ghost} inline-flex items-center`}>Print all labels</Link>
-          <button type="button" onClick={() => setAdding((v) => !v)} aria-expanded={adding} className={solid}>{adding ? "Close" : "Add a part"}</button>
+          <Link href="/labels" target="_blank" rel="noopener" className={ghost}>Print all labels</Link>
+          <button type="button" onClick={() => setAdding((v) => !v)} aria-expanded={adding} className={`${btnSecondary} ${btnSmall}`}>{adding ? "Close" : "Add a part"}</button>
         </div>
       </div>
 
       {!tagsLive && (
-        <p role="alert" className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
-          The tag table isn’t set up yet, so this shows the built-in map. Run the tags statement at the bottom of <code>supabase/schema.sql</code> before adding parts.
+        <p role="alert" className="border border-line bg-surface px-4 py-3 text-sm">
+          <span className="font-medium text-watch">Built-in tag map in use.</span> The tag table isn’t set up yet. Run the tags statement at the bottom of <code className="font-mono text-xs">supabase/schema.sql</code> before adding parts.
         </p>
       )}
 
@@ -115,35 +115,35 @@ export default function TagManager({ assets, components, tags, tagsLive, onChang
       )}
 
       {outcome && (
-        <div role={outcome.kind === "ok" ? "status" : "alert"} className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm ${outcome.kind === "ok" ? "border-green-300 bg-green-50 text-green-900 dark:border-green-800 dark:bg-green-950 dark:text-green-100" : "border-red-300 bg-red-50 text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-100"}`}>
-          <p>{outcome.text}</p>
-          {outcome.kind === "ok" && <Link href={`/labels?component=${encodeURIComponent(outcome.componentId)}`} target="_blank" rel="noopener" className={`${ghost} inline-flex items-center bg-white dark:bg-neutral-950`}>Print label</Link>}
+        <div role={outcome.kind === "ok" ? "status" : "alert"} className="flex flex-wrap items-center justify-between gap-3 border border-line bg-surface px-4 py-3 text-sm">
+          <p className="flex items-start gap-2.5"><span aria-hidden="true" className={`mt-1.5 h-2 w-2 shrink-0 ${outcome.kind === "ok" ? "bg-accent" : "bg-alert"}`} />{outcome.text}</p>
+          {outcome.kind === "ok" && <Link href={`/labels?component=${encodeURIComponent(outcome.componentId)}`} target="_blank" rel="noopener" className={ghost}>Print label</Link>}
         </div>
       )}
 
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <ul className="grid border-t border-line sm:grid-cols-2 sm:gap-x-10 xl:grid-cols-3">
         {[...untagged, ...components.filter((c) => tagByComponent.has(c.id))].map((component) => {
           const tagId = tagByComponent.get(component.id);
           const asset = assetsById.get(component.asset_id);
           return (
-            <li key={component.id} className="flex gap-4 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
-              <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-700">
+            <li key={component.id} className="flex gap-4 border-b border-line py-4">
+              <div className="h-20 w-20 shrink-0 border border-line bg-white">
                 {tagId === undefined
-                  ? <div className="flex h-full w-full items-center justify-center bg-neutral-100 text-xs text-neutral-600 dark:bg-neutral-900 dark:text-neutral-300">No tag</div>
+                  ? <div className="flex h-full w-full items-center justify-center bg-surface text-xs text-muted">No tag</div>
                   : <TagImage id={tagId} className="h-full w-full" title={`AprilTag ${tagId} for ${component.name}`} />}
               </div>
-              <div className="flex min-w-0 flex-1 flex-col gap-2">
+              <div className="flex min-w-0 flex-1 flex-col gap-3">
                 <div className="min-w-0">
                   <p className="font-medium leading-snug">{component.name}</p>
-                  <p className="truncate text-sm text-neutral-600 dark:text-neutral-300" title={component.location}>{component.location}</p>
-                  <p className="text-xs text-neutral-600 dark:text-neutral-300">{asset?.name ?? component.asset_id} · <span className="font-mono">{tagId === undefined ? "untagged" : `tag ${tagId}`}</span></p>
+                  <p className="truncate text-sm text-muted" title={component.location}>{component.location}</p>
+                  <p className="mt-0.5 text-xs text-muted">{asset?.name ?? component.asset_id} · <span className="font-mono">{tagId === undefined ? "untagged" : `tag ${tagId}`}</span></p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {tagId === undefined ? (
                     <AssignButton component={component} busy={busyId === component.id} onAssign={assign} />
                   ) : (
                     <>
-                      <Link href={`/labels?component=${encodeURIComponent(component.id)}`} target="_blank" rel="noopener" className={`${ghost} inline-flex items-center`}>Print</Link>
+                      <Link href={`/labels?component=${encodeURIComponent(component.id)}`} target="_blank" rel="noopener" className={ghost}>Print</Link>
                       <button type="button" onClick={() => download(component, tagId)} className={ghost}>Download SVG</button>
                     </>
                   )}
@@ -188,9 +188,9 @@ function AssignButton({ component, busy, onAssign }: {
       {askPin && (
         <label className="sr-only" htmlFor={`pin-${component.id}`}>Operator PIN</label>
       )}
-      {askPin && <input id={`pin-${component.id}`} type="password" inputMode="numeric" autoComplete="off" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Operator PIN" className={`${input} w-36 font-mono`} />}
+      {askPin && <input id={`pin-${component.id}`} type="password" inputMode="numeric" autoComplete="off" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="Operator PIN" className={`${input} min-h-10 w-36 font-mono text-sm`} />}
       <button type="submit" disabled={busy} aria-busy={busy} className={solid}>{busy ? "Assigning…" : "Assign next free tag"}</button>
-      {error && <p role="alert" className="w-full text-sm text-red-700 dark:text-red-300">{error}</p>}
+      {error && <p role="alert" className="w-full text-sm text-alert">{error}</p>}
     </form>
   );
 }
@@ -233,31 +233,31 @@ function AddPartForm({ assets, busy, onSubmit }: {
   }
 
   return (
-    <form onSubmit={submit} noValidate aria-label="Add a part" className="grid gap-3 rounded-2xl border border-neutral-200 p-4 sm:grid-cols-2 dark:border-neutral-800">
-      <label className="flex flex-col gap-1 text-sm font-medium">
+    <form onSubmit={submit} noValidate aria-label="Add a part" className="grid gap-4 border border-line p-4 sm:grid-cols-2 sm:p-5">
+      <label className={fieldLabel}>
         Asset
-        <select value={assetId} onChange={(e) => setAssetId(e.target.value)} className={`${input} appearance-none bg-white dark:bg-neutral-950`}>
+        <select value={assetId} onChange={(e) => setAssetId(e.target.value)} className={`${input} appearance-none`}>
           {assets.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
         </select>
       </label>
-      <label className="flex flex-col gap-1 text-sm font-medium">
+      <label className={fieldLabel}>
         Part name
         <input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Coolant reservoir" className={input} />
       </label>
-      <label className="flex flex-col gap-1 text-sm font-medium sm:col-span-2">
+      <label className={`${fieldLabel} sm:col-span-2`}>
         Where on the machine
         <input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={120} placeholder="Engine bay, passenger side, translucent tank" className={input} />
       </label>
       {askPin && (
-        <label className="flex flex-col gap-1 text-sm font-medium">
+        <label className={fieldLabel}>
           Operator PIN
           <input type="password" inputMode="numeric" autoComplete="off" value={pin} onChange={(e) => setPin(e.target.value)} className={`${input} font-mono`} />
         </label>
       )}
-      {error && <p role="alert" className="text-sm text-red-700 sm:col-span-2 dark:text-red-300">{error}</p>}
-      <div className="flex items-center gap-3 sm:col-span-2">
-        <button type="submit" disabled={busy} aria-busy={busy} className={solid}>{busy ? "Adding…" : "Add part and assign tag"}</button>
-        <p className="text-sm text-neutral-600 dark:text-neutral-300">It gets the next free 36h11 id.</p>
+      {error && <p role="alert" className="text-sm text-alert sm:col-span-2">{error}</p>}
+      <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
+        <button type="submit" disabled={busy} aria-busy={busy} className={`${btnPrimary} disabled:cursor-wait`}>{busy ? "Adding…" : "Add part and assign tag"}</button>
+        <p className={meta}>It gets the next free 36h11 id.</p>
       </div>
     </form>
   );

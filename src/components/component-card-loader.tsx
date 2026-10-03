@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ComponentCard as Card, MachineEvent, Role } from "@/lib/types";
 import ComponentCard from "./component-card";
 import NoteForm from "./note-form";
+import { btnPrimary, h1, textLink } from "./ui";
 
 type Result = { kind: "loading" } | { kind: "ready"; card: Card } | { kind: "missing" } | { kind: "error" };
 
@@ -84,27 +85,51 @@ export default function ComponentCardLoader({ id, role }: { id: string; role: Ro
 
   if (result.kind === "ready") return (
     <>
-      <div className="min-h-6 text-sm" aria-live="polite">
-        {refreshing && <p>Refreshing history and next step…</p>}
-        {refreshError && <p role="alert">Couldn’t refresh the card. The details below may be out of date. <button type="button" onClick={refreshCard} className="min-h-11 cursor-pointer rounded px-2 underline underline-offset-4 hover:opacity-70 focus-visible:outline-2">Refresh card</button></p>}
+      <div className="min-h-6 text-sm text-muted" aria-live="polite">
+        {refreshing && <p className="flex items-center gap-2"><span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-accent" />Re-reading the history and next step…</p>}
+        {refreshError && <p role="alert" className="text-alert">Couldn’t refresh the card. The details below may be out of date. <button type="button" onClick={refreshCard} className={`${textLink} text-foreground`}>Refresh card</button></p>}
       </div>
       <ComponentCard card={result.card} savedEventId={savedEventId} />
       <NoteForm id={id} role={role} onSaved={noteSaved} onCheckHistory={refreshCard} />
     </>
   );
-  if (result.kind === "loading") return <p role="status" className="min-h-48 py-8 text-neutral-600 dark:text-neutral-300">Loading this part’s history…</p>;
+  if (result.kind === "loading") return (
+    <div role="status" aria-label="Loading this part’s history" className="flex flex-col gap-12">
+      <div className="flex flex-col gap-3">
+        <Bar className="h-9 w-3/5" />
+        <Bar className="h-4 w-2/5" />
+        <div className="mt-2 border-t border-line pt-4"><Bar className="h-4 w-1/2" /></div>
+      </div>
+      <div className="flex flex-col gap-3">
+        <Bar className="h-3.5 w-20" />
+        <Bar className="h-7 w-full" />
+        <Bar className="h-7 w-4/5" />
+      </div>
+      <div className="flex flex-col gap-3">
+        <Bar className="h-4 w-44" />
+        <Bar className="h-4 w-full" />
+        <Bar className="h-4 w-11/12" />
+        <Bar className="h-4 w-3/4" />
+      </div>
+      <p className="sr-only">Loading this part’s history…</p>
+    </div>
+  );
   if (result.kind === "missing") return (
-    <section className="min-h-48 py-8">
-      <h1 className="text-2xl font-semibold">Unknown part</h1>
-      <p className="mt-3 text-neutral-600 dark:text-neutral-300">This label doesn’t match a component in the machine’s history.</p>
-      <Link href="/scan" className="mt-5 inline-flex min-h-14 items-center rounded-full bg-black px-6 py-4 font-medium text-white hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-4 dark:bg-white dark:text-black dark:hover:bg-neutral-200">Scan again</Link>
+    <section className="min-h-48 py-6">
+      <h1 className={h1}>Unknown part</h1>
+      <p className="mt-3 max-w-[50ch] text-muted">This label doesn’t match a part in the machine’s history.</p>
+      <Link href="/scan" className={`${btnPrimary} mt-6`}>Scan again</Link>
     </section>
   );
   return (
-    <section className="min-h-48 py-8">
-      <h1 className="text-2xl font-semibold">Couldn’t load this part</h1>
-      <p role="alert" className="mt-3 text-neutral-600 dark:text-neutral-300">Check your connection and try again. The machine’s history may be temporarily unavailable.</p>
-      <button type="button" onClick={() => { setResult({ kind: "loading" }); setAttempt(value => value + 1); }} className="mt-5 min-h-14 cursor-pointer rounded-full bg-black px-6 py-4 font-medium text-white hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-4 dark:bg-white dark:text-black dark:hover:bg-neutral-200">Try again</button>
+    <section className="min-h-48 py-6">
+      <h1 className={h1}>Couldn’t load this part</h1>
+      <p role="alert" className="mt-3 max-w-[50ch] text-muted">Check your connection and try again. The machine’s history may be temporarily unavailable.</p>
+      <button type="button" onClick={() => { setResult({ kind: "loading" }); setAttempt(value => value + 1); }} className={`${btnPrimary} mt-6`}>Try again</button>
     </section>
   );
+}
+
+function Bar({ className }: { className: string }) {
+  return <div aria-hidden="true" className={`animate-pulse rounded-ctl bg-surface ${className}`} />;
 }

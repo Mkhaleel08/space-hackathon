@@ -10,7 +10,7 @@ export default function ArError({ error, reset }: { error: Error & { digest?: st
       <button
         type="button"
         onClick={reset}
-        className="min-h-14 cursor-pointer rounded-full bg-white px-8 py-4 text-lg font-medium text-black hover:bg-neutral-200"
+        className="inline-flex min-h-14 cursor-pointer items-center justify-center rounded-ctl bg-accent px-8 text-lg font-medium text-accent-ink hover:bg-[#f0bf0a]"
       >
         Try again
       </button>
