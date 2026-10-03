@@ -9,7 +9,8 @@ sees it. The write-back loop is the demo.
 
 Full plan: [`docs/game-plan.md`](docs/game-plan.md). Locked decisions:
 [`docs/decisions.md`](docs/decisions.md). Frontend/backend seam:
-[`docs/api-contract.md`](docs/api-contract.md).
+[`docs/api-contract.md`](docs/api-contract.md). New teammate? Paste your role's prompt from
+[`docs/teammate-prompts.md`](docs/teammate-prompts.md) into Claude Code.
 
 ## Stack
 
@@ -20,7 +21,7 @@ Next.js 16 (App Router) on Vercel · Supabase Postgres · `html5-qrcode` · LLM 
 
 | Person | Role | Folders |
 |---|---|---|
-| Vinteeth | frontend | `src/app/` pages, `src/components/`, `src/hooks/` |
+| Vineeth | frontend | `src/app/` pages, `src/components/`, `src/hooks/` |
 | Neeraj | backend | `src/app/api/`, `src/lib/server/`, `supabase/` |
 | Mehran | product | `data/seed/`, `scripts/`, `docs/`, `public/qr/`, Devpost, pitch, phone testing, frontend overflow |
 
