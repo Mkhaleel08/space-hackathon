@@ -7,6 +7,7 @@ import type { ArucoDetector } from "js-aruco2";
 import { DICTIONARY, TAG_TO_COMPONENT } from "@/lib/markers";
 import { ArrowLeft } from "./icons";
 import PartChat, { type CameraControl } from "./part-chat";
+import Checklist, { checklistNoteText } from "./checklist";
 import type { ChatMessage } from "@/lib/chat";
 import { speechConstructor, speechSupported, type Recognition } from "@/lib/speech";
 import {
@@ -98,6 +99,7 @@ const LOCK_UPRIGHT = true;
 const ROLE_KEY = "machine-memory:role";
 const ROLE_EVENT = "machine-memory:role-updated";
 const PANELS: PanelId[] = ["head", "next", "memory"];
+const EMPTY_SET: Set<string> = new Set();
 const VOICE_DONE_MS = 2800; // how long "memory updated" stays before the panel goes back to normal
 
 const stripe: Record<Reading["status"], string> = {
@@ -269,6 +271,8 @@ export default function ArView() {
   // Chat threads per part, kept while the view is open so closing the drawer
   // to look at the card does not lose the conversation.
   const [threads, setThreads] = useState<Record<string, ChatMessage[]>>({});
+  // Checked checklist steps per part, for this session only.
+  const [checklists, setChecklists] = useState<Record<string, Set<string>>>({});
   const speechOk = useSyncExternalStore(noSubscribe, speechSupported, speechOnServer);
   const [size, setSize] = useState({ w: 0, h: 0 });
   // Landscape is the intended grip: the camera frame is wide, the panels have
@@ -553,6 +557,34 @@ export default function ArView() {
     chatRef.current = null;
     setChatId(null);
   }, []);
+  // The assistant recorded a measurement: show the new values on the card at
+  // once for both roles, then re-read the card so the wording catches up.
+  const patchReadings = useCallback(
+    (id: string, readings: Reading[]) => {
+      const patch = (c: Card): Card => ({ ...c, readings });
+      const key = `${id}:${role}`;
+      const otherKey = `${id}:${role === "operator" ? "technician" : "operator"}`;
+      const cached = cacheRef.current.get(key);
+      if (cached) cacheRef.current.set(key, patch(cached));
+      cacheRef.current.delete(otherKey);
+      setCards((prev) => {
+        const next = { ...prev };
+        delete next[otherKey]; // the other role re-reads on its next switch
+        const s = prev[key];
+        if (s?.kind === "ready") next[key] = { kind: "ready", card: patch(s.card) };
+        return next;
+      });
+      void fetch(`/api/components/${encodeURIComponent(id)}/card?role=${role}`, { cache: "no-store" })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const card: Card = await res.json();
+          cacheRef.current.set(key, card);
+          setCards((prev) => ({ ...prev, [key]: { kind: "ready", card } }));
+        })
+        .catch(() => {});
+    },
+    [role],
+  );
   const cameraControl = useMemo<CameraControl>(
     () => ({ pause: pauseCamera, resume: resumeCamera, isOn: () => Boolean(streamRef.current), micNeedsCamera: micNeedsCameraRef }),
     [pauseCamera, resumeCamera],
@@ -690,6 +722,33 @@ export default function ArView() {
       })();
     },
     [dropRecognition, pauseCamera, resumeCamera, role, setVoice],
+  );
+
+  const toggleChecklistItem = useCallback((id: string, itemId: string) => {
+    setChecklists((prev) => {
+      const next = new Set(prev[id] ?? []);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return { ...prev, [id]: next };
+    });
+  }, []);
+  // Finishing files the checked and skipped steps through the spoken-note
+  // save path, so the memory panel shows "Filed as inspection" and the card
+  // re-reads itself with no second code path.
+  const finishChecklist = useCallback(
+    (id: string) => {
+      const state = cards[`${id}:${role}`];
+      const checked = checklists[id];
+      if (!state || state.kind !== "ready" || !checked || !state.card.checklist.some((i) => checked.has(i.id))) return;
+      // A spoken note still being reviewed keeps the panel; finish after it is saved.
+      const v = voiceRef.current;
+      if (v && v.id === id && (v.phase === "listening" || v.phase === "review" || v.phase === "saving")) return;
+      const text = checklistNoteText(state.card.checklist, checked);
+      setChecklists((prev) => ({ ...prev, [id]: new Set() }));
+      setVoice({ id, phase: "review", text, interim: "", message: "" });
+      voiceAction(id, "save");
+    },
+    [cards, checklists, role, setVoice, voiceAction],
   );
 
   async function start() {
@@ -1015,6 +1074,9 @@ export default function ArView() {
       voice={openVoice}
       speechOk={speechOk}
       onVoice={voiceAction}
+      checked={(open && checklists[open.id]) || EMPTY_SET}
+      onToggleItem={toggleChecklistItem}
+      onFinish={finishChecklist}
     />
   ));
 
@@ -1229,6 +1291,7 @@ export default function ArView() {
           role={role}
           messages={threads[chatId] ?? []}
           onMessages={(next) => setThreads((prev) => ({ ...prev, [chatId]: next }))}
+          onReadings={(readings) => patchReadings(chatId, readings)}
           landscape={landscape}
           speechOk={speechOk}
           camera={cameraControl}
@@ -1346,6 +1409,9 @@ const Panel = memo(function Panel({
   voice,
   speechOk,
   onVoice,
+  checked,
+  onToggleItem,
+  onFinish,
 }: {
   id: PanelId;
   setRef: (el: HTMLDivElement | null) => void;
@@ -1357,6 +1423,9 @@ const Panel = memo(function Panel({
   voice: VoiceState | null;
   speechOk: boolean;
   onVoice: (id: string, action: VoiceAction) => void;
+  checked: Set<string>;
+  onToggleItem: (id: string, itemId: string) => void;
+  onFinish: (id: string) => void;
 }) {
   // Every panel is a tap target: tap to expand in place, tap again to collapse.
   const tappable = {
@@ -1480,7 +1549,20 @@ const Panel = memo(function Panel({
         <div className="flex items-center">{label("Next step", "text-amber-200/90")}{more}</div>
         <p className={`mt-1 text-[16px] font-semibold leading-snug ${expanded ? "" : "line-clamp-3"}`}>{card.next_step}</p>
         {expanded && (
-          <p className="mt-2 text-[12px] text-white/60">Written for the {card.role} from this part’s history. Switch roles above to change the wording.</p>
+          <>
+            <p className="mt-2 text-[12px] text-white/60">Written for the {card.role} from this part’s history. Switch roles above to change the wording.</p>
+            {/* Taps inside the checklist must not collapse the panel. */}
+            <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+              <Checklist
+                dark
+                items={card.checklist}
+                checked={checked}
+                onToggle={(itemId) => onToggleItem(partId, itemId)}
+                onFinish={() => onFinish(partId)}
+                saving={voice?.phase === "saving"}
+              />
+            </div>
+          </>
         )}
       </div>
     );

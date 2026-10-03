@@ -11,6 +11,10 @@ component's event history, worded for the role:
 - **operator**: plain language, what to watch for, when to call someone
 - **technician**: specifics, part names, last repair, what to check first
 
+`checklist` is 4 to 6 LLM-written inspection steps for the role, history
+first, cached with the summary. Checked state lives on the phone; finishing
+posts a normal note.
+
 `readings` come from the `readings` table (seeded from `data/seed/readings.json`,
 used directly when the table is missing) and change through notes and the chat.
 
@@ -43,6 +47,12 @@ from the same history and readings the card uses, worded for the role, and
 the response streams back as `text/plain` chunks (no JSON, no SSE framing):
 read the body as it arrives and append. Nothing is stored; the client keeps
 the thread.
+
+When the latest user turn states a measurement, the server records it on
+the part's readings before answering and sets the `x-readings-updated`
+header to JSON `{ changes: [{ label, from, to, status }], readings }` where
+`readings` is the full list after the change. Absent when nothing changed.
+The body is unchanged.
 
 Errors: `400` bad body, `404` unknown component, `503` when no LLM key is
 set, `502` when the provider fails before the first byte.
