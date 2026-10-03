@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import type { ComponentCard as Card, Reading, Role } from "@/lib/types";
 import type { ArucoDetector } from "js-aruco2";
@@ -21,10 +21,12 @@ import {
 } from "@/lib/homography";
 
 /**
- * Live view. The camera stays open; when a QR label is in frame its four
- * corners define a plane, and three glass panels (status, next step, memory)
- * are drawn on that plane beside the label with leader lines flowing out from
- * a ring on the code. If the plane is viewed too obliquely or the panels would
+ * Live view. The camera stays open and every label in frame gets a node: a
+ * dot on the label joined by a line to a compact chip (name + status). Tap a
+ * chip and it opens into three glass panels (status, next step, memory)
+ * beside its label; the first label seen opens by itself. Nodes glide toward
+ * each new detection every animation frame so they move smoothly, and stay
+ * upright on screen while tracking position and distance (see LOCK_UPRIGHT). If the plane is viewed too obliquely or the panels would
  * leave the screen, the same panels fall back to a flat stack near the code.
  *
  * Recognition is AprilTag (36h11) via js-aruco2, which reads tags at steep
@@ -32,7 +34,9 @@ import {
  * keep working. Both report corner points, which the plane math needs.
  */
 
-type Anchor = { id: string; quad: Quad; seenAt: number };
+/** One tracked label. `target` is the latest detection, `display` glides toward it every frame. */
+type Track = { target: Quad; display: Quad; seenAt: number; firstSeen: number; lost: boolean };
+type Anchor = { id: string; quad: Quad; lost: boolean; firstSeen: number };
 type CardState =
   | { kind: "loading" }
   | { kind: "ready"; card: Card }
@@ -43,7 +47,13 @@ type PanelId = "head" | "next" | "memory";
 
 const DECODE_INTERVAL_MS = 90;
 const DECODE_WIDTH = 420;
-const LOST_AFTER_MS = 1200;
+const LOST_AFTER_MS = 1200; // fade the node once the label has been out of frame this long
+const REMOVE_AFTER_MS = 2600; // then drop it
+const SMOOTH_TAU_MS = 70; // per-frame easing time constant; ~3x this to settle
+const CHIP_W = 200; // compact node size, CSS px
+const CHIP_H = 44;
+const CHIP_GAP = 14; // between a label and its node
+const DOT_R = 5;
 const GUTTER = 12;
 const PANEL_W = 300; // natural CSS px; the homography scales it to the scene
 const PANEL_GAP_U = 0.14; // marker units between panels
@@ -54,6 +64,10 @@ const MIN_SCALE = 0.72; // on-screen px per natural px; below this the type is t
 // (text smears far from the tag), 0 = flat rotate-and-scale. A blend keeps
 // the tilt cue while staying legible.
 const PERSPECTIVE = 0.4;
+// Panels stay upright on screen ("locked to the horizon"): they follow the
+// tag's position and distance but never its roll or perspective, so the text
+// reads level however the label is taped on or the phone is held.
+const LOCK_UPRIGHT = true;
 const ROLE_KEY = "machine-memory:role";
 const ROLE_EVENT = "machine-memory:role-updated";
 const PANELS: PanelId[] = ["head", "next", "memory"];
@@ -147,13 +161,14 @@ function screenQuad(pts: Pt[]): Quad {
 function makePlacer(H: number[], q: Quad) {
   const c = center(q);
   const side = meanSide(q);
-  const ang = Math.atan2(q[1].y - q[0].y, q[1].x - q[0].x);
+  const ang = LOCK_UPRIGHT ? 0 : Math.atan2(q[1].y - q[0].y, q[1].x - q[0].x);
+  const persp = LOCK_UPRIGHT ? 0 : PERSPECTIVE;
   const cos = Math.cos(ang), sin = Math.sin(ang);
   return (p: Pt): Pt => {
     const full = apply(H, p);
     const lx = (p.x - 0.5) * side, ly = (p.y - 0.5) * side;
     const flat = { x: c.x + lx * cos - ly * sin, y: c.y + lx * sin + ly * cos };
-    return { x: flat.x + (full.x - flat.x) * PERSPECTIVE, y: flat.y + (full.y - flat.y) * PERSPECTIVE };
+    return { x: flat.x + (full.x - flat.x) * persp, y: flat.y + (full.y - flat.y) * persp };
   };
 }
 
@@ -164,31 +179,41 @@ export default function ArView() {
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef(0);
   const lastDecodeRef = useRef(0);
-  const smoothRef = useRef<Quad | null>(null);
+  const lastFrameRef = useRef(0);
+  const tracksRef = useRef(new Map<string, Track>());
+  const dirtyRef = useRef(false);
   const cacheRef = useRef(new Map<string, Card>());
+  const inflightRef = useRef(new Set<string>());
   const jsqrRef = useRef<typeof import("jsqr").default | null>(null);
   const detectorRef = useRef<ArucoDetector | null>(null);
   const tickCountRef = useRef(0);
   const startedRef = useRef(false);
+  const prevCountRef = useRef(0);
+  const openRef = useRef<string | null>(null);
 
   const [view, setView] = useState<ViewState>("idle");
   const [error, setError] = useState("");
-  const [anchor, setAnchor] = useState<Anchor | null>(null);
-  const [lost, setLost] = useState(false);
+  const [anchors, setAnchors] = useState<Anchor[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
   const role = useSyncExternalStore(subscribeRole, readStoredRole, serverRole);
-  const [cardState, setCardState] = useState<CardState>({ kind: "loading" });
+  const [cards, setCards] = useState<Record<string, CardState>>({});
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [heights, setHeights] = useState<Record<PanelId, number>>({ head: 96, next: 110, memory: 150 });
-  // Expanded panels are remembered per pinned part, so moving to another
+  // Expanded panels are remembered per open part, so switching to another
   // label starts collapsed without an effect to reset anything.
   const collapsed: Record<PanelId, boolean> = { head: false, next: false, memory: false };
   const [expandedFor, setExpandedFor] = useState<{ id: string } & Record<PanelId, boolean>>({ id: "", ...collapsed });
-  const expanded: Record<PanelId, boolean> = expandedFor.id === (anchor?.id ?? "") ? expandedFor : collapsed;
-  const togglePanel = (id: PanelId) =>
-    setExpandedFor((prev) => {
-      const base = prev.id === (anchor?.id ?? "") ? prev : { id: anchor?.id ?? "", ...collapsed };
-      return { ...base, [id]: !base[id] };
-    });
+  const expanded: Record<PanelId, boolean> = expandedFor.id === (openId ?? "") ? expandedFor : collapsed;
+  const togglePanel = useCallback(
+    (id: PanelId) =>
+      setExpandedFor((prev) => {
+        const base = prev.id === (openId ?? "") ? prev : { id: openId ?? "", head: false, next: false, memory: false };
+        return { ...base, [id]: !base[id] };
+      }),
+    [openId],
+  );
+
+  const cardFor = (id: string): CardState => cards[`${id}:${role}`] ?? { kind: "loading" };
 
   function selectRole(next: Role) {
     try {
@@ -261,43 +286,46 @@ export default function ArView() {
     void start();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch the card whenever the pinned part or the role changes.
+  // Fetch a card for every label in view (and again when the role changes),
+  // so the compact nodes can show status before anyone taps.
+  const visibleIds = anchors.map((a) => a.id).join("\u0000");
   useEffect(() => {
-    if (!anchor) return;
-    const key = `${anchor.id}:${role}`;
-    const cached = cacheRef.current.get(key);
-    if (cached) {
-      setCardState({ kind: "ready", card: cached });
-      return;
-    }
-    setCardState({ kind: "loading" });
-    const controller = new AbortController();
-    (async () => {
-      try {
-        const res = await fetch(
-          `/api/components/${encodeURIComponent(anchor.id)}/card?role=${role}`,
-          { signal: controller.signal, cache: "no-store" },
-        );
-        if (res.status === 404) return setCardState({ kind: "missing" });
-        if (!res.ok) throw new Error("card failed");
-        const card: Card = await res.json();
-        cacheRef.current.set(key, card);
-        setCardState({ kind: "ready", card });
-      } catch (e) {
-        if ((e as Error).name !== "AbortError") setCardState({ kind: "error" });
+    const ids = visibleIds ? visibleIds.split("\u0000") : [];
+    for (const id of ids) {
+      const key = `${id}:${role}`;
+      if (cards[key] && cards[key].kind !== "error") continue;
+      const cached = cacheRef.current.get(key);
+      if (cached) {
+        setCards((prev) => ({ ...prev, [key]: { kind: "ready", card: cached } }));
+        continue;
       }
-    })();
-    return () => controller.abort();
-  }, [anchor?.id, role]); // eslint-disable-line react-hooks/exhaustive-deps
+      if (inflightRef.current.has(key)) continue;
+      inflightRef.current.add(key);
+      setCards((prev) => (prev[key]?.kind === "loading" ? prev : { ...prev, [key]: { kind: "loading" } }));
+      (async () => {
+        try {
+          const res = await fetch(`/api/components/${encodeURIComponent(id)}/card?role=${role}`, { cache: "no-store" });
+          if (res.status === 404) return setCards((prev) => ({ ...prev, [key]: { kind: "missing" } }));
+          if (!res.ok) throw new Error("card failed");
+          const card: Card = await res.json();
+          cacheRef.current.set(key, card);
+          setCards((prev) => ({ ...prev, [key]: { kind: "ready", card } }));
+        } catch {
+          setCards((prev) => ({ ...prev, [key]: { kind: "error" } }));
+        } finally {
+          inflightRef.current.delete(key);
+        }
+      })();
+    }
+  }, [visibleIds, role]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Mark the anchor lost when the code leaves the frame.
-  useEffect(() => {
-    if (!anchor) return;
-    const t = window.setInterval(() => {
-      setLost(performance.now() - anchor.seenAt > LOST_AFTER_MS);
-    }, 200);
-    return () => window.clearInterval(t);
-  }, [anchor]);
+  // Which node is open: the first label seen opens by itself so a single tag
+  // still shows its card without a tap; after that, taps decide. A node whose
+  // label has gone closes. Decided in the frame loop, mirrored in openRef.
+  const openNode = useCallback((id: string | null) => {
+    openRef.current = id;
+    setOpenId(id);
+  }, []);
 
   async function start() {
     if (view === "opening" || view === "running") return;
@@ -325,6 +353,7 @@ export default function ArView() {
       video.srcObject = stream;
       await video.play();
       setView("running");
+      lastFrameRef.current = 0;
       rafRef.current = requestAnimationFrame(tick);
     } catch (cause) {
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -334,10 +363,8 @@ export default function ArView() {
     }
   }
 
-  function tick(now: number) {
-    rafRef.current = requestAnimationFrame(tick);
-    if (now - lastDecodeRef.current < DECODE_INTERVAL_MS) return;
-    lastDecodeRef.current = now;
+  /** Read every label in the frame and update its track's target corners. */
+  function decode(now: number) {
     const video = videoRef.current;
     const jsQR = jsqrRef.current;
     if (!video || !jsQR || video.readyState < 2 || !video.videoWidth) return;
@@ -358,75 +385,106 @@ export default function ArView() {
     const img = ctx.getImageData(0, 0, cw, ch);
     tickCountRef.current += 1;
 
-    // AprilTag first. Fall back to QR every third frame so old labels still work.
-    let id: string | null = null;
-    let found: Pt[] | null = null;
+    // AprilTags first, all of them. Fall back to QR every third frame so old
+    // labels still work (jsQR reads one code per frame).
+    const seen = new Map<string, Pt[]>();
     const markers = detectorRef.current?.detect(img) ?? [];
     for (const m of markers) {
       const cid = componentForTag(m.id);
-      if (cid && m.corners.length === 4) {
-        id = cid;
-        found = m.corners;
-        break;
-      }
+      if (cid && m.corners.length === 4 && !seen.has(cid)) seen.set(cid, m.corners);
     }
-    if (!found && tickCountRef.current % 3 === 0) {
+    if (seen.size === 0 && tickCountRef.current % 3 === 0) {
       const code = jsQR(img.data, cw, ch, { inversionAttempts: "dontInvert" });
       const text = code?.data.trim();
       if (code && text) {
         const { topLeftCorner: a, topRightCorner: b, bottomRightCorner: c, bottomLeftCorner: d } = code.location;
-        id = text;
-        found = [a, b, c, d];
+        seen.set(text, [a, b, c, d]);
       }
     }
-    if (!id || !found) return;
+    if (seen.size === 0) return;
 
     const el = containerRef.current;
     if (!el) return;
-    const raw = screenQuad(
-      found.map((p) => toScreen({ x: p.x / k, y: p.y / k }, vw, vh, el.clientWidth, el.clientHeight)),
-    );
-    // Light smoothing so the panels do not jitter with hand shake.
-    const prev = smoothRef.current;
-    const quad = prev
-      ? (raw.map((p, i) => ({ x: prev[i].x + (p.x - prev[i].x) * 0.45, y: prev[i].y + (p.y - prev[i].y) * 0.45 })) as Quad)
-      : raw;
-    smoothRef.current = quad;
-
-    setAnchor((current) => {
-      if (!current || current.id !== id) {
-        smoothRef.current = raw;
+    for (const [id, pts] of seen) {
+      const raw = screenQuad(pts.map((p) => toScreen({ x: p.x / k, y: p.y / k }, vw, vh, el.clientWidth, el.clientHeight)));
+      const track = tracksRef.current.get(id);
+      if (track) {
+        track.target = raw;
+        track.seenAt = now;
+      } else {
+        tracksRef.current.set(id, { target: raw, display: raw, seenAt: now, firstSeen: now, lost: false });
+        dirtyRef.current = true;
         if ("vibrate" in navigator && navigator.userActivation?.hasBeenActive) navigator.vibrate?.(25);
-        return { id, quad: raw, seenAt: performance.now() };
       }
-      return { id, quad, seenAt: performance.now() };
-    });
+    }
+  }
+
+  /** Every frame: decode on a budget, then glide each node toward its target. */
+  function tick(now: number) {
+    rafRef.current = requestAnimationFrame(tick);
+    const dt = lastFrameRef.current ? Math.min(now - lastFrameRef.current, 100) : 16;
+    lastFrameRef.current = now;
+    if (now - lastDecodeRef.current >= DECODE_INTERVAL_MS) {
+      lastDecodeRef.current = now;
+      decode(now);
+    }
+
+    const a = 1 - Math.exp(-dt / SMOOTH_TAU_MS);
+    let changed = dirtyRef.current;
+    dirtyRef.current = false;
+    const next: Anchor[] = [];
+    for (const [id, t] of tracksRef.current) {
+      const age = now - t.seenAt;
+      if (age > REMOVE_AFTER_MS) {
+        tracksRef.current.delete(id);
+        changed = true;
+        continue;
+      }
+      const d = t.display.map((p, i) => ({ x: p.x + (t.target[i].x - p.x) * a, y: p.y + (t.target[i].y - p.y) * a })) as Quad;
+      if (!changed && d.some((p, i) => Math.abs(p.x - t.display[i].x) > 0.02 || Math.abs(p.y - t.display[i].y) > 0.02)) changed = true;
+      t.display = d;
+      const lost = age > LOST_AFTER_MS;
+      if (lost !== t.lost) {
+        t.lost = lost;
+        changed = true;
+      }
+      next.push({ id, quad: d, lost, firstSeen: t.firstSeen });
+    }
+    if (!changed) return;
+    next.sort((x, y) => x.firstSeen - y.firstSeen);
+    const current = openRef.current;
+    if (current && !next.some((x) => x.id === current)) openNode(null);
+    else if (!current && prevCountRef.current === 0 && next.length > 0) openNode(next[0].id);
+    prevCountRef.current = next.length;
+    setAnchors(next);
   }
 
   // ---- Layout -----------------------------------------------------------
-  // Panels live in marker units: the QR code is the unit square, y down.
-  // Choose a column width so panels read at a sane size on screen whatever
-  // the code's distance, then try to lay the column on the plane. Fall back
-  // to a flat stack when the plane is too oblique or runs off screen.
-  const tracked = Boolean(anchor && size.w && !lost);
+  // The open label gets the three panels; every other label gets a compact
+  // node above it. Panels live in marker units: the label is the unit
+  // square, y down. Choose a column width so panels read at a sane size on
+  // screen whatever the label's distance, then try to lay the column beside
+  // it. Fall back to a flat stack when the column would not fit.
+  const open = openId ? anchors.find((x) => x.id === openId) ?? null : null;
+  const tracked = Boolean(open && size.w && !open.lost);
   let mode: "world" | "flat" = "flat";
   let panelTransforms: Partial<Record<PanelId, string>> = {};
   let panelQuads: Partial<Record<PanelId, Quad>> = {};
-  let ring: { c: Pt; r: number } | null = null;
+  let dot: Pt | null = null;
   let flatX = GUTTER;
   let flatY = size.h - GUTTER;
   let flatBelow = true;
   const flatW = Math.min(size.w - GUTTER * 2, PANEL_W); // same width as world mode, so heights match
   const flatH = heights.head + heights.next + heights.memory + 16;
+  const TOP_BAR = 64;
 
-  if (tracked && anchor) {
-    const q = anchor.quad;
+  if (tracked && open) {
+    const q = open.quad;
     const side = Math.max(meanSide(q), 1);
     const c = center(q);
-    ring = { c, r: Math.max(side * 0.8, 36) };
+    dot = c;
 
     const H = homography(rectQuad(0, 0, 1, 1), q);
-    const TOP_BAR = 64;
     const ys = q.map((p) => p.y);
     const minY = Math.min(...ys), maxY = Math.max(...ys);
     const sumH = heights.head + heights.next + heights.memory; // natural px
@@ -500,27 +558,54 @@ export default function ArView() {
         flatBelow = false;
       } else {
         flatY = size.h - flatH - GUTTER - 8;
-        ring = null; // docked; no line to draw
+        dot = null; // docked; no line to draw
       }
     }
   } else {
     flatY = size.h - flatH - GUTTER - 8;
   }
 
+  // Compact nodes for every label that is not open: a chip above the label
+  // (below it when there is no room), nudged apart when two would overlap.
+  type Chip = { id: string; left: number; top: number; above: boolean; c: Pt; lost: boolean };
+  const chips: Chip[] = [];
+  if (size.w) {
+    for (const a of anchors) {
+      if (a.id === openId) continue;
+      const c = center(a.quad);
+      const ys = a.quad.map((p) => p.y);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      const left = Math.min(Math.max(c.x - CHIP_W / 2, GUTTER), size.w - CHIP_W - GUTTER);
+      let above = true;
+      let top = minY - CHIP_GAP - CHIP_H;
+      if (top < TOP_BAR + 4) {
+        above = false;
+        top = Math.min(maxY + CHIP_GAP, size.h - GUTTER - CHIP_H);
+      }
+      for (const other of chips) {
+        const overlaps = Math.abs(other.left - left) < CHIP_W + 6 && Math.abs(other.top - top) < CHIP_H + 6;
+        if (overlaps) top = above ? other.top - CHIP_H - 6 : other.top + CHIP_H + 6;
+      }
+      chips.push({ id: a.id, left, top, above, c, lost: a.lost });
+    }
+  }
+
   const running = view === "running";
   const flatLine: { from: Pt; to: Pt } | null =
-    mode === "flat" && ring && anchor
+    mode === "flat" && dot && open
       ? {
-          from: exitCircle(ring.c, ring.r, { x: flatX + flatW / 2, y: flatBelow ? flatY : flatY + flatH }),
-          to: { x: Math.min(Math.max(ring.c.x, flatX + 24), flatX + flatW - 24), y: flatBelow ? flatY : flatY + flatH },
+          from: exitCircle(dot, DOT_R + 2, { x: flatX + flatW / 2, y: flatBelow ? flatY : flatY + flatH }),
+          to: { x: Math.min(Math.max(dot.x, flatX + 24), flatX + flatW - 24), y: flatBelow ? flatY : flatY + flatH },
         }
       : null;
 
+  const openState: CardState = open ? cardFor(open.id) : { kind: "loading" };
+  const openLost = open?.lost ?? false;
   const panelNodes = (
     <>
-      <Panel id="head" setRef={bindPanel.head} state={cardState} partId={anchor?.id ?? ""} lost={lost} expanded={expanded.head} onToggle={() => togglePanel("head")} />
-      <Panel id="next" setRef={bindPanel.next} state={cardState} partId={anchor?.id ?? ""} lost={lost} expanded={expanded.next} onToggle={() => togglePanel("next")} />
-      <Panel id="memory" setRef={bindPanel.memory} state={cardState} partId={anchor?.id ?? ""} lost={lost} expanded={expanded.memory} onToggle={() => togglePanel("memory")} />
+      <Panel id="head" setRef={bindPanel.head} state={openState} partId={open?.id ?? ""} lost={openLost} expanded={expanded.head} onToggle={togglePanel} />
+      <Panel id="next" setRef={bindPanel.next} state={openState} partId={open?.id ?? ""} lost={openLost} expanded={expanded.next} onToggle={togglePanel} />
+      <Panel id="memory" setRef={bindPanel.memory} state={openState} partId={open?.id ?? ""} lost={openLost} expanded={expanded.memory} onToggle={togglePanel} />
     </>
   );
 
@@ -535,34 +620,44 @@ export default function ArView() {
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${running ? "opacity-100" : "opacity-0"}`}
       />
 
-      {/* Ring on the code and leader lines to the panels */}
-      {running && anchor && size.w > 0 && (
+      {/* Label outlines, a dot on each label, and lines to the nodes */}
+      {running && anchors.length > 0 && size.w > 0 && (
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${size.w} ${size.h}`} aria-hidden="true">
-          <g className={`transition-opacity duration-300 ${lost ? "opacity-0" : "opacity-100"}`}>
+          {anchors.map((a) => (
             <polygon
-              points={anchor.quad.map((p) => `${p.x},${p.y}`).join(" ")}
+              key={a.id}
+              points={a.quad.map((p) => `${p.x},${p.y}`).join(" ")}
               fill="rgba(255,255,255,0.06)"
-              stroke="rgba(255,255,255,0.55)"
-              strokeWidth="1.5"
+              stroke="rgba(255,255,255,0.45)"
+              strokeWidth="1.25"
               strokeLinejoin="round"
+              className={`transition-opacity duration-300 ${a.lost ? "opacity-0" : "opacity-100"}`}
             />
-            {ring && (
-              <>
-                <circle cx={ring.c.x} cy={ring.c.y} r={ring.r} fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth="3" />
-                <circle cx={ring.c.x} cy={ring.c.y} r={ring.r} fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.25" />
-              </>
-            )}
-            {ring && mode === "world" &&
-              PANELS.map((id) => {
-                const q = panelQuads[id];
-                if (!q) return null;
-                const to = nearestEdgeMid(q, ring!.c);
-                const from = exitCircle(ring!.c, ring!.r, to);
-                if (Math.hypot(to.x - from.x, to.y - from.y) < 12) return null;
-                return <Leader key={id} from={from} to={to} />;
-              })}
-            {flatLine && <Leader from={flatLine.from} to={flatLine.to} />}
-          </g>
+          ))}
+          {chips.map((ch) => {
+            const to = { x: ch.left + CHIP_W / 2, y: ch.above ? ch.top + CHIP_H : ch.top };
+            return (
+              <g key={ch.id} className={`transition-opacity duration-300 ${ch.lost ? "opacity-30" : "opacity-100"}`}>
+                <Leader from={exitCircle(ch.c, DOT_R + 2, to)} to={to} />
+                <Dot c={ch.c} />
+              </g>
+            );
+          })}
+          {open && dot && (
+            <g className={`transition-opacity duration-300 ${open.lost ? "opacity-0" : "opacity-100"}`}>
+              {mode === "world" &&
+                PANELS.map((id) => {
+                  const q = panelQuads[id];
+                  if (!q) return null;
+                  const to = nearestEdgeMid(q, dot!);
+                  const from = exitCircle(dot!, DOT_R + 2, to);
+                  if (Math.hypot(to.x - from.x, to.y - from.y) < 12) return null;
+                  return <Leader key={id} from={from} to={to} />;
+                })}
+              {flatLine && <Leader from={flatLine.from} to={flatLine.to} />}
+              <Dot c={dot} />
+            </g>
+          )}
         </svg>
       )}
 
@@ -595,7 +690,11 @@ export default function ArView() {
               Point the camera at a part. Its memory pins itself to the label, no buttons.
             </p>
           </div>
-          {error && <p role="alert" className="max-w-sm text-red-300">{error}</p>}
+          {error && (
+            <p role="alert" className="max-w-xs text-balance text-red-300">
+              {error}
+            </p>
+          )}
           <button
             type="button"
             onClick={start}
@@ -612,33 +711,35 @@ export default function ArView() {
       )}
 
       {/* Hint while nothing is pinned */}
-      {running && !anchor && (
+      {running && anchors.length === 0 && (
         <p role="status" className="pointer-events-none absolute inset-x-0 bottom-[max(2rem,env(safe-area-inset-bottom))] text-center text-lg font-medium text-white drop-shadow">
           Point at a part’s label
         </p>
       )}
 
+      {/* Compact nodes: one per label that is not open. Tap to open. */}
+      {running &&
+        chips.map((ch) => (
+          <ChipNode key={ch.id} id={ch.id} left={ch.left} top={ch.top} lost={ch.lost} state={cardFor(ch.id)} onOpen={openNode} />
+        ))}
+
       {/* Panels on the plane */}
-      {running && anchor && mode === "world" && (
+      {running && open && mode === "world" && (
         <div className="absolute inset-0 z-10" aria-label="Part card" role="region">
           {PANELS.map((id) => (
-            <div
-              key={id}
-              className="absolute left-0 top-0 origin-top-left transition-transform duration-100 ease-linear will-change-transform"
-              style={{ width: PANEL_W, transform: panelTransforms[id] }}
-            >
-              <Panel id={id} setRef={bindPanel[id]} state={cardState} partId={anchor.id} lost={lost} expanded={expanded[id]} onToggle={() => togglePanel(id)} />
+            <div key={id} className="absolute left-0 top-0 origin-top-left will-change-transform" style={{ width: PANEL_W, transform: panelTransforms[id] }}>
+              <Panel id={id} setRef={bindPanel[id]} state={openState} partId={open.id} lost={openLost} expanded={expanded[id]} onToggle={togglePanel} />
             </div>
           ))}
         </div>
       )}
 
-      {/* Panels as a flat stack (oblique plane, edge of screen, or code lost) */}
-      {running && anchor && mode === "flat" && (
+      {/* Panels as a flat stack (oblique plane, edge of screen, or label lost) */}
+      {running && open && mode === "flat" && (
         <div
           role="region"
           aria-label="Part card"
-          className="absolute left-0 top-0 z-10 flex flex-col gap-2 transition-transform duration-150 ease-out will-change-transform"
+          className="absolute left-0 top-0 z-10 flex flex-col gap-2 will-change-transform"
           style={{ width: flatW, transform: `translate3d(${flatX}px, ${flatY}px, 0)` }}
         >
           {panelNodes}
@@ -647,6 +748,56 @@ export default function ArView() {
     </div>
   );
 }
+
+function Dot({ c }: { c: Pt }) {
+  return (
+    <>
+      <circle cx={c.x} cy={c.y} r={DOT_R + 2} fill="rgba(0,0,0,0.35)" />
+      <circle cx={c.x} cy={c.y} r={DOT_R} fill="white" />
+    </>
+  );
+}
+
+const shortStatus: Record<Reading["status"], string> = { ok: "OK", watch: "Watch", alert: "Alert" };
+const dotColor: Record<Reading["status"], string> = { ok: "bg-emerald-400", watch: "bg-amber-400", alert: "bg-red-500" };
+
+/** Compact node: part name and status. Tapping opens the full panels on that label. */
+const ChipNode = memo(function ChipNode({
+  id,
+  left,
+  top,
+  lost,
+  state,
+  onOpen,
+}: {
+  id: string;
+  left: number;
+  top: number;
+  lost: boolean;
+  state: CardState;
+  onOpen: (id: string) => void;
+}) {
+  const card = state.kind === "ready" ? state.card : null;
+  const status = card ? worstStatus(card.readings) : null;
+  const name = card ? card.component.name : state.kind === "missing" ? "Unknown part" : id;
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(id)}
+      aria-label={`Open ${name}`}
+      style={{ ...glassStyle, width: CHIP_W, height: CHIP_H, transform: `translate3d(${left}px, ${top}px, 0)` }}
+      className={`${glass} absolute left-0 top-0 z-10 flex cursor-pointer items-center gap-2 px-3 text-left will-change-transform transition-opacity duration-300 focus-visible:outline-2 focus-visible:outline-white ${lost ? "opacity-40" : "opacity-100"}`}
+    >
+      <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${status ? dotColor[status] : "bg-white/40"}`} />
+      <span className="min-w-0 flex-1 truncate text-[14px] font-medium leading-tight">{name}</span>
+      {status ? (
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${pill[status]}`}>{shortStatus[status]}</span>
+      ) : (
+        <span className="shrink-0 font-mono text-[10px] text-white/50">{state.kind === "loading" ? "…" : ""}</span>
+      )}
+    </button>
+  );
+});
 
 function Leader({ from, to }: { from: Pt; to: Pt }) {
   return (
@@ -678,7 +829,7 @@ const glassStyle: React.CSSProperties = {
 
 const eventDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 
-function Panel({
+const Panel = memo(function Panel({
   id,
   setRef,
   state,
@@ -693,18 +844,18 @@ function Panel({
   partId: string;
   lost: boolean;
   expanded: boolean;
-  onToggle: () => void;
+  onToggle: (id: PanelId) => void;
 }) {
   // Every panel is a tap target: tap to expand in place, tap again to collapse.
   const tappable = {
     role: "button" as const,
     tabIndex: 0,
     "aria-expanded": expanded,
-    onClick: onToggle,
+    onClick: () => onToggle(id),
     onKeyDown: (e: React.KeyboardEvent) => {
       if (e.key === "Enter" || e.key === " ") {
         e.preventDefault();
-        onToggle();
+        onToggle(id);
       }
     },
   };
@@ -824,4 +975,4 @@ function Panel({
       </Link>
     </div>
   );
-}
+});
