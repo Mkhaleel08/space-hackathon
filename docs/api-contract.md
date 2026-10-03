@@ -33,6 +33,16 @@ every part, simulated readings keyed by component id, and the operator-role
 `next_step` per component (served from the card cache when warm). Used by the
 operator dashboard at `/dashboard`. Never cached.
 
+## `DELETE /api/events/[id]`
+
+Header: `x-operator-pin` must equal the server's `OPERATOR_PIN` env var.
+Removes that one event and returns `DeleteEventResponse` (`{ deleted }`).
+Nothing else is touched; the card cache is keyed by history hash, so the next
+card read for that part regenerates its summary and next step.
+
+Errors: `503` when `OPERATOR_PIN` is not set (fails closed), `401` on a wrong
+PIN, `404` for an unknown event id.
+
 ## `GET /api/components`
 
 Lists all components for the one asset. Used by the checklist (second tier).

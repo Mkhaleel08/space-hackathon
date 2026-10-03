@@ -155,3 +155,20 @@ export async function listEvents(limit = DASHBOARD_EVENTS): Promise<MachineEvent
   if (error) throw error;
   return (data ?? []) as MachineEvent[];
 }
+
+/** Removes one event and returns it, or null if no such row. Nothing cascades. */
+export async function deleteEvent(id: string): Promise<MachineEvent | null> {
+  if (!hasSupabase()) {
+    const i = localEvents.findIndex((e) => e.id === id);
+    if (i === -1) return null;
+    return localEvents.splice(i, 1)[0];
+  }
+  const { data, error } = await supabase()
+    .from("events")
+    .delete()
+    .eq("id", id)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  return (data as MachineEvent | null) ?? null;
+}

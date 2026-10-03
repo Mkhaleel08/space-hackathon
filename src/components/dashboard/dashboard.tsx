@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import type { DashboardData } from "@/lib/types";
+import type { Component, DashboardData, MachineEvent } from "@/lib/types";
 import ActivityFeed from "./activity-feed";
 import AssetOverview, { groupAssets } from "./asset-overview";
 import { formatAbsolute, useNow } from "./format";
@@ -23,6 +23,7 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
   const [assetId, setAssetId] = useState("all");
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState(false);
+  const [notice, setNotice] = useState("");
   const inflight = useRef<AbortController | null>(null);
   const now = useNow();
 
@@ -62,6 +63,12 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
     return [e.summary, e.detail ?? "", component?.name ?? "", component?.location ?? ""].some((s) => s.toLowerCase().includes(q));
   });
   const filtered = q !== "" || status !== "all" || assetId !== "all";
+
+  function eventDeleted(event: MachineEvent, component: Component | undefined) {
+    setData((prev) => ({ ...prev, events: prev.events.filter((e) => e.id !== event.id) }));
+    setNotice(`Deleted “${event.summary}” from ${component?.name ?? event.component_id}. Re-reading the memory…`);
+    void refresh().then(() => setNotice((n) => (n.startsWith("Deleted") ? n.replace(" Re-reading the memory…", " Summary and next step updated.") : n)));
+  }
 
   function clearFilters() {
     setQuery("");
@@ -135,7 +142,13 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
             <h2 id="activity-heading" className="shrink-0 text-lg font-semibold">Recent activity</h2>
             <p className="text-sm text-neutral-600 dark:text-neutral-300">Notes, faults, repairs, inspections</p>
           </div>
-          <ActivityFeed events={visibleEvents} componentsById={componentsById} assetsById={assetsById} now={now} emptyMessage={data.events.length ? "No activity matches these filters." : "Nothing recorded yet. Notes from the field show up here."} />
+          {notice && (
+            <div role="status" className="flex items-start justify-between gap-3 rounded-xl border border-green-300 bg-green-50 px-4 py-3 text-sm text-green-900 dark:border-green-800 dark:bg-green-950 dark:text-green-100">
+              <p>{notice}</p>
+              <button type="button" onClick={() => setNotice("")} aria-label="Dismiss" className="-mr-1 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-green-100 focus-visible:outline-2 dark:hover:bg-green-900">×</button>
+            </div>
+          )}
+          <ActivityFeed events={visibleEvents} componentsById={componentsById} assetsById={assetsById} now={now} emptyMessage={data.events.length ? "No activity matches these filters." : "Nothing recorded yet. Notes from the field show up here."} onDeleted={eventDeleted} />
         </section>
       </div>
     </main>

@@ -76,3 +76,8 @@ export interface DashboardData {
   next_steps: Record<string, string>; // operator wording, from the card cache when warm
   generated_at: string; // ISO 8601
 }
+
+/** Response for DELETE /api/events/[id] (needs the operator PIN header). */
+export interface DeleteEventResponse {
+  deleted: MachineEvent;
+}
