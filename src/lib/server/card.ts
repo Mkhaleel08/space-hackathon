@@ -20,7 +20,7 @@ import { writeCard } from "./llm";
 import { readingsFor } from "./readings";
 
 // Bump when the card prompt changes so old cached wording is not reused.
-const PROMPT_VERSION = "v2";
+const PROMPT_VERSION = "v4";
 
 export async function buildCard(
   componentId: string,
@@ -47,6 +47,7 @@ export async function buildCard(
     next_step: text.next_step,
     readings,
     recent_events: history.slice(0, RECENT_EVENTS),
+    checklist: text.checklist.map((t, i) => ({ id: String(i), text: t })),
   };
 }
 
@@ -61,7 +62,7 @@ async function cardText(
   events: MachineEvent[],
   readings: Reading[],
   role: Role,
-): Promise<{ summary: string; next_step: string }> {
+): Promise<{ summary: string; next_step: string; checklist: string[] }> {
   const key = cacheKey(component, asset, events, readings, role);
   const cached = await getCachedCardText(key);
   if (cached) return cached;
@@ -107,7 +108,7 @@ function placeholderText(
   name: string,
   role: Role,
   events: MachineEvent[],
-): { summary: string; next_step: string } {
+): { summary: string; next_step: string; checklist: string[] } {
   const last = events[0];
   const lastLine = last
     ? `Last ${last.type} on ${last.created_at.slice(0, 10)}: ${last.summary}.`
@@ -124,6 +125,7 @@ function placeholderText(
       next_step: open
         ? "Go easy on this part and tell maintenance before your next shift."
         : "Keep an eye on it during your shift. Call maintenance if you notice leaks, new noises, or sluggish response.",
+      checklist: ["Walk around and look for anything new", "Listen for new noises on start-up", "Tell maintenance about anything you noticed"],
     };
   }
   const status = open ? `open fault, ${open.summary}` : "no open faults";
@@ -132,5 +134,6 @@ function placeholderText(
     next_step: open
       ? `Start with the reported fault (${open.summary}), then verify readings against spec and log the repair.`
       : "Check readings against spec, confirm no active leaks, and log anything you touch as a note.",
+    checklist: ["Check readings against spec", "Look for leaks, wear, or loose fasteners", "Log what you touched as a note"],
   };
 }

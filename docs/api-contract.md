@@ -11,6 +11,10 @@ component's event history, worded for the role:
 - **operator**: plain language, what to watch for, when to call someone
 - **technician**: specifics, part names, last repair, what to check first
 
+`checklist` is 4 to 6 LLM-written inspection steps for the role, history
+first, cached with the summary. Checked state lives on the phone; finishing
+posts a normal note.
+
 `readings` come from the `readings` table (seeded from `data/seed/readings.json`,
 used directly when the table is missing) and change through notes and the chat.
 

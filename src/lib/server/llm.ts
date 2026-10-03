@@ -17,6 +17,8 @@ import type { ReadingUpdate } from "./readings";
 const LLM_TIMEOUT_MS = 12_000;
 
 const CARD_TEXT_MAX = 280;
+const CHECKLIST_ITEM_MAX = 80;
+const CHECKLIST_MAX = 6;
 const NOTE_SUMMARY_MAX = 120;
 
 export function hasLlm(): boolean {
@@ -137,15 +139,16 @@ export async function writeCard(
   events: MachineEvent[],
   readings: Reading[],
   role: Role,
-): Promise<{ summary: string; next_step: string } | null> {
+): Promise<{ summary: string; next_step: string; checklist: string[] } | null> {
   const audience =
     role === "operator"
       ? "the OPERATOR or driver: plain language, no jargon, what to watch or listen for, and when to call maintenance"
       : "a TECHNICIAN: specific, name parts and symptoms, reference the last repair or fault, and say what to check first";
   const system = [
     "You write short maintenance cards for one part of a machine or vehicle.",
-    'Respond with JSON only: {"summary": string, "next_step": string}.',
-    "Each value is 1 to 2 sentences and under 240 characters.",
+    'Respond with JSON only: {"summary": string, "next_step": string, "checklist": string[]}.',
+    "summary and next_step are each 1 to 2 sentences and under 240 characters.",
+    "checklist is 4 to 6 inspection steps for this reader to do at the part right now. Each step is one short action under 60 characters, no reasons or explanations (\"Measure inner pad thickness\", \"Check guide pins move freely\"). Steps that follow from the history and flagged readings come first, routine checks after.",
     `Write for ${audience}.`,
     "Base everything on the event history. If a recent note reports a problem, the card must reflect it.",
     "Older flags that were never resolved still matter: carry them forward even when newer events exist.",
@@ -162,13 +165,20 @@ export async function writeCard(
     describeEvents(events),
     "</history>",
   ].join("\n");
-  const out = parseJson<{ summary?: string; next_step?: string }>(
+  const out = parseJson<{ summary?: string; next_step?: string; checklist?: unknown }>(
     await complete(system, user),
   );
   if (!out?.summary || !out?.next_step) return null;
+  const checklist = Array.isArray(out.checklist)
+    ? out.checklist
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .map((item) => clamp(item, CHECKLIST_ITEM_MAX))
+        .slice(0, CHECKLIST_MAX)
+    : [];
   return {
     summary: clamp(String(out.summary), CARD_TEXT_MAX),
     next_step: clamp(String(out.next_step), CARD_TEXT_MAX),
+    checklist,
   };
 }
 

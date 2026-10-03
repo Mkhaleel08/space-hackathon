@@ -50,6 +50,13 @@ export interface ComponentCard {
   next_step: string; // LLM-written, one imperative sentence
   readings: Reading[];
   recent_events: MachineEvent[]; // newest first, max 5
+  checklist: ChecklistItem[]; // LLM-written inspection steps for the role, 4 to 6, history first
+}
+
+/** One step of the card's inspection checklist. Checked state lives on the phone. */
+export interface ChecklistItem {
+  id: string; // index as a string, stable within one card
+  text: string; // imperative, under 80 characters
 }
 
 /** Body for POST /api/components/[id]/notes */
