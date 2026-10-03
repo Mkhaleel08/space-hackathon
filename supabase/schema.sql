@@ -43,3 +43,15 @@ create table if not exists card_cache (
   next_step text not null,
   created_at timestamptz not null default now()
 );
+
+-- AprilTag 36h11 id -> component. Seeded from src/lib/markers.ts; the operator
+-- dashboard assigns the next free id when a part is added. Cascades with the
+-- component, and `npm run seed` reloads it.
+create table if not exists tags (
+  tag_id integer primary key check (tag_id between 0 and 586),
+  component_id text not null unique references components(id) on delete cascade
+);
+insert into tags (tag_id, component_id) values
+  (0, 'hyd-pump'), (1, 'boom-cyl'), (2, 'engine-air'), (3, 'track-left'),
+  (10, 'car-brakes-lf'), (11, 'car-battery'), (12, 'car-air-filter'), (13, 'car-tire-lf')
+on conflict do nothing;

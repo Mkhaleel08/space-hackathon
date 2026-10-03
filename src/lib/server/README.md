@@ -14,3 +14,5 @@ and LLM calls, so keys stay on the server.
 - `notes.ts` — `addNote(id, body)` structures and inserts a `MachineEvent`.
 - `readings.ts` — simulated readings per component.
 - `dashboard.ts` — `getDashboard()` assembles `DashboardData` for `/dashboard`.
+- `tags.ts` — AprilTag assignment: `tagsOrFallback()`, `assignTag(id)`, `addComponent(body)`.
+- `operator.ts` — `operatorGate(request)`: the shared `OPERATOR_PIN` check for deletes and new parts.
