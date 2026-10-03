@@ -6,6 +6,9 @@ import type { ComponentCard as Card, NewNoteRequest, NewNoteResponse, Reading, R
 import type { ArucoDetector } from "js-aruco2";
 import { DICTIONARY, TAG_TO_COMPONENT } from "@/lib/markers";
 import { ArrowLeft } from "./icons";
+import PartChat, { type CameraControl } from "./part-chat";
+import type { ChatMessage } from "@/lib/chat";
+import { speechConstructor, speechSupported, type Recognition } from "@/lib/speech";
 import {
   apply,
   center,
@@ -27,7 +30,9 @@ import {
  * chip and it opens into three glass panels (status, next step, memory)
  * beside its label; nothing opens until it is tapped. From the memory panel
  * you can speak a note: the browser transcribes it, the backend's model turns
- * it into a structured event, and the card re-reads its memory. Nodes glide toward
+ * it into a structured event, and the card re-reads its memory. A mic button
+ * beside the card opens the part assistant (part-chat.tsx), a chat drawer
+ * where the tech asks about fixes and concerns and the answer streams back. Nodes glide toward
  * each new detection every animation frame so they move smoothly, and stay
  * upright on screen while tracking position and distance (see LOCK_UPRIGHT). If the plane is viewed too obliquely or the panels would
  * leave the screen, the same panels fall back to a flat stack near the code.
@@ -52,26 +57,9 @@ type PanelId = "head" | "next" | "memory";
 type VoiceState = { id: string; phase: "listening" | "review" | "saving" | "saved" | "error"; text: string; interim: string; message: string };
 type VoiceAction = "start" | "stop" | "save" | "cancel";
 
-// Browser speech recognition is not in TypeScript's DOM types.
-type Recognition = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  onresult: ((event: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
-  onerror: ((event: { error: string }) => void) | null;
-  onend: (() => void) | null;
-  start(): void;
-  stop(): void;
-  abort(): void;
-};
-type SpeechWindow = Window & { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
-function speechConstructor() {
-  const w = window as SpeechWindow;
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
-}
 const noSubscribe = () => () => {};
-const speechSupported = () => Boolean(speechConstructor());
 const speechOnServer = () => false;
+const MIC_FAB = 56; // the Ask button beside the open card, CSS px
 
 const DECODE_INTERVAL_MS = 90;
 const DECODE_WIDTH = 420;
@@ -253,6 +241,8 @@ export default function ArView() {
   const openRef = useRef<string | null>(null);
   const recRef = useRef<Recognition | null>(null);
   const voiceRef = useRef<VoiceState | null>(null);
+  // Which part's assistant is open. Mirrored in chatRef for the frame loop.
+  const chatRef = useRef<string | null>(null);
   // Zoom. The camera does what it can; the rest is a centre crop of the frame.
   const zoomLevelRef = useRef(1); // what the user asked for
   const digitalZoomRef = useRef(1); // the share the camera could not do, applied by cropping
@@ -269,6 +259,10 @@ export default function ArView() {
   const role = useSyncExternalStore(subscribeRole, readStoredRole, serverRole);
   const [cards, setCards] = useState<Record<string, CardState>>({});
   const [voiceState, setVoiceState] = useState<VoiceState | null>(null);
+  const [chatId, setChatId] = useState<string | null>(null);
+  // Chat threads per part, kept while the view is open so closing the drawer
+  // to look at the card does not lose the conversation.
+  const [threads, setThreads] = useState<Record<string, ChatMessage[]>>({});
   const speechOk = useSyncExternalStore(noSubscribe, speechSupported, speechOnServer);
   const [size, setSize] = useState({ w: 0, h: 0 });
   // Landscape is the intended grip: the camera frame is wide, the panels have
@@ -525,12 +519,37 @@ export default function ArView() {
         resumeCamera();
         setVoice(null);
       }
+      if (chatRef.current && chatRef.current !== id) {
+        chatRef.current = null;
+        setChatId(null);
+      }
       openRef.current = id;
       setOpenId(id);
     },
     [dropRecognition, resumeCamera, setVoice],
   );
   const closeNode = useCallback(() => openNode(null), [openNode]);
+
+  // The part assistant takes over the mic: any spoken note in progress is dropped.
+  const openChat = useCallback(
+    (id: string) => {
+      if (voiceRef.current) {
+        dropRecognition();
+        setVoice(null);
+      }
+      chatRef.current = id;
+      setChatId(id);
+    },
+    [dropRecognition, setVoice],
+  );
+  const closeChat = useCallback(() => {
+    chatRef.current = null;
+    setChatId(null);
+  }, []);
+  const cameraControl = useMemo<CameraControl>(
+    () => ({ pause: pauseCamera, resume: resumeCamera, isOn: () => Boolean(streamRef.current), micNeedsCamera: micNeedsCameraRef }),
+    [pauseCamera, resumeCamera],
+  );
 
   // Speak a note on the open part. The browser transcribes, the backend's
   // model files it as a structured event, then the card re-reads its memory
@@ -793,8 +812,8 @@ export default function ArView() {
     const next: Anchor[] = [];
     for (const [id, t] of tracksRef.current) {
       const age = now - t.seenAt;
-      // A part with a spoken note in progress stays (docked, as lost) until the note is done.
-      if (age > REMOVE_AFTER_MS && voiceRef.current?.id !== id) {
+      // A part with a spoken note or the assistant open stays (docked, as lost) until that is done.
+      if (age > REMOVE_AFTER_MS && voiceRef.current?.id !== id && chatRef.current !== id) {
         tracksRef.current.delete(id);
         changed = true;
         continue;
@@ -993,6 +1012,22 @@ export default function ArView() {
     />
   ));
 
+  // The Ask button sits just outside the card's top-right corner (top-left
+  // when the card is against the right edge), in either layout mode.
+  let micFab: { x: number; y: number } | null = null;
+  if (open && openState.kind === "ready" && !chatId && size.w) {
+    const q = mode === "world" ? panelQuads.head : null;
+    const left = q ? Math.min(...q.map((p) => p.x)) : flatX;
+    const right = q ? Math.max(...q.map((p) => p.x)) : flatX + flatW;
+    const top = q ? Math.min(...q.map((p) => p.y)) : flatY;
+    const fitsRight = right + 8 + MIC_FAB <= size.w - GUTTER - 60; // 60: the zoom column on the right edge
+    micFab = {
+      x: fitsRight ? right + 8 : Math.max(GUTTER, left - 8 - MIC_FAB),
+      y: Math.min(Math.max(top, TOP_BAR + 4), size.h - GUTTER - MIC_FAB),
+    };
+  }
+  const chatState: CardState | null = chatId ? cardFor(chatId) : null;
+
   return (
     <div ref={containerRef} className="fixed inset-0 overflow-hidden bg-black text-white">
       <style>{`@keyframes mm-flow { to { stroke-dashoffset: -28; } }`}</style>
@@ -1163,6 +1198,36 @@ export default function ArView() {
         >
           {panelNodes}
         </div>
+      )}
+
+      {/* Ask: the mic button beside the open card. Tap to open the part assistant. */}
+      {running && open && micFab && (
+        <button
+          type="button"
+          aria-label={`Ask about ${openState.kind === "ready" ? openState.card.component.name : open.id}`}
+          onClick={() => openChat(open.id)}
+          style={{ width: MIC_FAB, height: MIC_FAB, transform: `translate3d(${micFab.x}px, ${micFab.y}px, 0)` }}
+          className={`absolute left-0 top-0 z-20 flex cursor-pointer flex-col items-center justify-center rounded-full bg-[#ffcd11] text-black shadow-[0_6px_24px_rgba(0,0,0,0.5)] ring-2 ring-black/40 will-change-transform transition-opacity duration-300 hover:bg-[#f0bf0a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${open.lost ? "opacity-70" : "opacity-100"}`}
+        >
+          <span aria-hidden="true" className="absolute inset-0 animate-ping rounded-full bg-[#ffcd11]/40 [animation-duration:2.4s]" />
+          <MicIcon size={22} />
+          <span aria-hidden="true" className="mt-0.5 font-mono text-[9px] font-bold uppercase tracking-[0.12em]">Ask</span>
+        </button>
+      )}
+
+      {/* The part assistant: chat drawer over the camera */}
+      {running && chatId && chatState?.kind === "ready" && (
+        <PartChat
+          key={chatId}
+          card={chatState.card}
+          role={role}
+          messages={threads[chatId] ?? []}
+          onMessages={(next) => setThreads((prev) => ({ ...prev, [chatId]: next }))}
+          landscape={landscape}
+          speechOk={speechOk}
+          camera={cameraControl}
+          onClose={closeChat}
+        />
       )}
     </div>
   );
@@ -1469,9 +1534,9 @@ const primaryBtn =
 const ghostBtn =
   "flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-white/30 px-4 text-sm font-medium text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
 
-function MicIcon() {
+function MicIcon({ size = 16 }: { size?: number }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="5.5" y="1.5" width="5" height="8" rx="2.5" />
       <path d="M3 7.5a5 5 0 0 0 10 0M8 12.5v2M5.5 14.5h5" />
     </svg>

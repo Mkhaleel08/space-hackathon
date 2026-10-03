@@ -64,3 +64,13 @@ uneven inner-pad wear traced to dry caliper guide pins in 2025, and the cold
 squeal is back), left front tire, engine oil, engine air filter, 12V battery.
 AprilTags 10-14, page 1 of `/tags/print.html`. The Cat 320 stays in the data
 for the pitch and video but is not the live demo.
+
+## Addendum, Oct 3 12:45 PM (Mehran)
+
+One last feature: a **part assistant** in the live view. A yellow mic button
+sits beside the open card; tapping it opens a chat drawer (side drawer in
+landscape, bottom sheet in portrait) where the tech asks about possible
+fixes, what to change, and concerns with the part. Voice in, streamed text
+out, read aloud when the question was spoken. It is grounded in the same
+history and readings as the card through `POST /api/components/[id]/chat`.
+Nothing is stored. Still no AR beyond the pinned live view.

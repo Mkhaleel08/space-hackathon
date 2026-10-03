@@ -208,7 +208,7 @@ export async function structureNote(
 // How long the assistant may stream before the stream is cut and the client
 // shows what arrived. Longer than the card calls: the answer is read live.
 const CHAT_TIMEOUT_MS = 45_000;
-const CHAT_MAX_TOKENS = 700;
+const CHAT_MAX_TOKENS = 500;
 
 /**
  * Live-view assistant: the tech asks about the part they are looking at and
@@ -234,7 +234,7 @@ export async function streamChat(
     `You are talking to ${audience}.`,
     "Ground every answer in the part's history and readings below. Say plainly what the records show, what you are inferring, and what you cannot know from here.",
     "Older flags that were never resolved still matter: raise them.",
-    "Answers are read aloud and shown on a small screen: 2 to 5 short sentences, or a short numbered list of at most 4 steps. Plain text only, no markdown, no headings, no bold.",
+    "Answers are read aloud and shown on a phone: under 110 words. Either 2 to 4 short sentences or one numbered list of at most 4 steps, not both. Plain text only, no markdown, no headings, no bold.",
     "If something is a safety risk (pressure, hot fluid, stored energy, lifting), say so first.",
     DATA_RULE,
   ].join(" ");
