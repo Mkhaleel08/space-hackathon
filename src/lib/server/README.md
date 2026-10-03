@@ -13,3 +13,4 @@ and LLM calls, so keys stay on the server.
 - `card.ts` — `buildCard(id, role)` assembles a `ComponentCard`. LLM wording is cached by a hash of the history (memory + `card_cache` table), so it only changes when a note is added.
 - `notes.ts` — `addNote(id, body)` structures and inserts a `MachineEvent`.
 - `readings.ts` — simulated readings per component.
+- `dashboard.ts` — `getDashboard()` assembles `DashboardData` for `/dashboard`.

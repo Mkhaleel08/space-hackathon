@@ -26,6 +26,13 @@ inserts it, and returns `NewNoteResponse`.
 This is the write-back loop. The next `GET .../card` for this component must
 reflect the new event. That is the demo moment.
 
+## `GET /api/dashboard`
+
+Returns `DashboardData`: all assets, components, the newest 200 events across
+every part, simulated readings keyed by component id, and the operator-role
+`next_step` per component (served from the card cache when warm). Used by the
+operator dashboard at `/dashboard`. Never cached.
+
 ## `GET /api/components`
 
 Lists all components for the one asset. Used by the checklist (second tier).
