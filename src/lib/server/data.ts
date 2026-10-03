@@ -4,10 +4,12 @@ import seedAssets from "../../../data/seed/assets.json";
 import seedComponents from "../../../data/seed/components.json";
 import seedEvents from "../../../data/seed/events.json";
 
-// Reads go to Supabase. If the keys are not set yet, fall back to the seed
-// JSON so the routes return real-shaped data during local development.
+// Reads and writes go to Supabase. If the keys are not set yet, fall back to
+// the seed JSON (plus an in-memory list for new notes) so the routes work
+// during local development. In-memory notes are lost on restart.
 
 const RECENT_EVENTS = 10;
+const localEvents: MachineEvent[] = [];
 
 export async function getComponent(id: string): Promise<Component | null> {
   if (!hasSupabase()) {
@@ -39,11 +41,14 @@ export async function getRecentEvents(
   componentId: string,
 ): Promise<MachineEvent[]> {
   if (!hasSupabase()) {
-    return (seedEvents as Omit<MachineEvent, "id">[])
+    const seeded = (seedEvents as Omit<MachineEvent, "id">[]).map((e, i) => ({
+      id: `seed-${i}`,
+      ...e,
+    })) as MachineEvent[];
+    return [...localEvents, ...seeded]
       .filter((e) => e.component_id === componentId)
-      .map((e, i) => ({ id: `seed-${i}`, ...e }))
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
-      .slice(0, RECENT_EVENTS) as MachineEvent[];
+      .slice(0, RECENT_EVENTS);
   }
   const { data, error } = await supabase()
     .from("events")
@@ -53,6 +58,27 @@ export async function getRecentEvents(
     .limit(RECENT_EVENTS);
   if (error) throw error;
   return (data ?? []) as MachineEvent[];
+}
+
+export async function insertEvent(
+  event: Omit<MachineEvent, "id" | "created_at">,
+): Promise<MachineEvent> {
+  if (!hasSupabase()) {
+    const row: MachineEvent = {
+      id: `local-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      ...event,
+    };
+    localEvents.unshift(row);
+    return row;
+  }
+  const { data, error } = await supabase()
+    .from("events")
+    .insert(event)
+    .select("*")
+    .single();
+  if (error) throw error;
+  return data as MachineEvent;
 }
 
 export async function listComponents(): Promise<Component[]> {
