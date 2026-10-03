@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-03T00:00:00Z",
+  "title": "Design System: Machine Memory",
+  "extensions": {
+    "colorMeta": {
+      "accent": { "role": "primary", "displayName": "Cat Yellow", "canonical": "#ffcd11", "tonalRamp": ["#3d2f00", "#5c4700", "#8a6a00", "#b88e00", "#e3b400", "#ffcd11", "#ffe066", "#fff4bf"] },
+      "foreground": { "role": "neutral", "displayName": "Ink", "canonical": "#111111", "dark": "#f2f2f2", "tonalRamp": ["#111111", "#262626", "#3d3d3d", "#5f5f5f", "#8a8a8a", "#a3a3a3", "#d4d4d4", "#f2f2f2"] },
+      "background": { "role": "neutral", "displayName": "Ground", "canonical": "#ffffff", "dark": "#0c0c0c", "tonalRamp": ["#0c0c0c", "#161616", "#262626", "#5f5f5f", "#a3a3a3", "#eaeaea", "#f6f6f6", "#ffffff"] },
+      "muted": { "role": "neutral", "displayName": "Muted", "canonical": "#5f5f5f", "dark": "#a3a3a3", "tonalRamp": ["#1a1a1a", "#2e2e2e", "#454545", "#5f5f5f", "#7a7a7a", "#a3a3a3", "#c9c9c9", "#ededed"] },
+      "line": { "role": "neutral", "displayName": "Line", "canonical": "#eaeaea", "dark": "#262626", "tonalRamp": ["#141414", "#262626", "#3a3a3a", "#5a5a5a", "#8c8c8c", "#bdbdbd", "#dcdcdc", "#eaeaea"] },
+      "surface": { "role": "neutral", "displayName": "Surface", "canonical": "#f6f6f6", "dark": "#161616", "tonalRamp": ["#0c0c0c", "#161616", "#262626", "#4a4a4a", "#8a8a8a", "#c4c4c4", "#e6e6e6", "#f6f6f6"] },
+      "ok": { "role": "status", "displayName": "Ok", "canonical": "#1f7a3d", "dark": "#5dc27a", "tonalRamp": ["#0b2e17", "#124a24", "#1f7a3d", "#2a9a4f", "#3fb062", "#5dc27a", "#92d9a5", "#d6f2de"] },
+      "watch": { "role": "status", "displayName": "Watch", "canonical": "#9a5b00", "dark": "#d98b2b", "tonalRamp": ["#2e1b00", "#5a3500", "#9a5b00", "#b86d0a", "#d98b2b", "#e7a65a", "#f2c892", "#fbe8cf"] },
+      "alert": { "role": "status", "displayName": "Alert", "canonical": "#b42318", "dark": "#f97066", "tonalRamp": ["#3a0b08", "#6e150e", "#b42318", "#d93b2e", "#f05a4e", "#f97066", "#fba39d", "#fde0dd"] }
+    },
+    "typographyMeta": {
+      "part-name": { "displayName": "Part name", "purpose": "The h1 of a part card only." },
+      "page-title": { "displayName": "Page title", "purpose": "h1 on every other screen; home hero is a one-off 36/44px." },
+      "next-step": { "displayName": "Next step", "purpose": "The single recommendation; loudest body text on the page, max 32ch." },
+      "section-heading": { "displayName": "Section heading", "purpose": "Same size as body; weight does the work." },
+      "body": { "displayName": "Body", "purpose": "Paragraphs max 65ch, relaxed leading; row summaries at weight 500." },
+      "meta": { "displayName": "Meta", "purpose": "Dates, locations, helper copy, dl labels; always muted." },
+      "reading-value": { "displayName": "Reading value", "purpose": "Geist Mono with tabular-nums for readings, hours, tag ids." }
+    },
+    "shadows": [
+      { "name": "dialog-backdrop", "value": "rgba(0,0,0,0.6)", "purpose": "Backdrop of the native dialog. The only darkening on a page surface." },
+      { "name": "live-glass", "value": "0 8px 30px rgba(0,0,0,0.45)", "purpose": "Glass panels over camera video in /ar only. Never on a page background." }
+    ],
+    "motion": [
+      { "name": "colors", "value": "150ms", "purpose": "transition-colors on every button, chip and segment." },
+      { "name": "chevron", "value": "transform 200ms", "purpose": "Expandable-row chevron rotation." },
+      { "name": "reduced-motion", "value": "0.01ms", "purpose": "All animation and transition durations collapse under prefers-reduced-motion." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "One per page: the thing the visitor came to do. Cat yellow fill, ink text.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Save note</button>",
+      "css": ".ds-btn { display:inline-flex; min-height:48px; align-items:center; justify-content:center; gap:8px; padding:0 20px; border-radius:4px; font: 500 16px/1.5 Geist, system-ui, sans-serif; cursor:pointer; transition: background-color 150ms, border-color 150ms; border:1px solid transparent; } .ds-btn-primary { background: var(--accent, #ffcd11); color: var(--accent-ink, #111111); } .ds-btn-primary:hover { background:#f0bf0a; } .ds-btn-primary:active { background:#e3b400; } .ds-btn:focus-visible { outline:2px solid var(--foreground, #111); outline-offset:2px; } .ds-btn:disabled { opacity:.5; cursor:not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The alternative to the primary. Ink border, transparent fill, surface wash on hover.",
+      "html": "<button class=\"ds-btn ds-btn-secondary\">Scan a part</button>",
+      "css": ".ds-btn { display:inline-flex; min-height:48px; align-items:center; justify-content:center; gap:8px; padding:0 20px; border-radius:4px; font: 500 16px/1.5 Geist, system-ui, sans-serif; cursor:pointer; transition: background-color 150ms, border-color 150ms; } .ds-btn-secondary { background:transparent; color:var(--foreground,#111); border:1px solid var(--foreground,#111); } .ds-btn-secondary:hover { background:var(--surface,#f6f6f6); } .ds-btn:focus-visible { outline:2px solid var(--foreground,#111); outline-offset:2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Everything else that is a button. Line border; muted border and surface wash on hover.",
+      "html": "<button class=\"ds-btn ds-btn-ghost\">Refresh</button>",
+      "css": ".ds-btn { display:inline-flex; min-height:48px; align-items:center; justify-content:center; gap:8px; padding:0 20px; border-radius:4px; font: 500 16px/1.5 Geist, system-ui, sans-serif; cursor:pointer; transition: background-color 150ms, border-color 150ms; } .ds-btn-ghost { background:transparent; color:var(--foreground,#111); border:1px solid var(--line,#eaeaea); } .ds-btn-ghost:hover { border-color:var(--muted,#5f5f5f); background:var(--surface,#f6f6f6); } .ds-btn:focus-visible { outline:2px solid var(--foreground,#111); outline-offset:2px; }"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Text input, textarea and select share one look: 1px line border, ground fill, ink border on focus.",
+      "html": "<label class=\"ds-field-label\">Operator PIN<input class=\"ds-field\" type=\"password\" placeholder=\"••••\"></label>",
+      "css": ".ds-field-label { display:flex; flex-direction:column; gap:6px; font: 500 14px/1.43 Geist, system-ui, sans-serif; color:var(--foreground,#111); } .ds-field { min-height:48px; width:100%; padding:0 12px; border-radius:4px; border:1px solid var(--line,#eaeaea); background:var(--background,#fff); color:var(--foreground,#111); font: 400 16px/1.5 Geist, system-ui, sans-serif; } .ds-field::placeholder { color:var(--muted,#5f5f5f); } .ds-field:hover { border-color:var(--muted,#5f5f5f); } .ds-field:focus-visible { border-color:var(--foreground,#111); outline:2px solid var(--foreground,#111); outline-offset:2px; } .ds-field[aria-invalid=true] { border-color:var(--alert,#b42318); }"
+    },
+    {
+      "name": "Status Mark",
+      "kind": "chip",
+      "refersTo": "status-mark",
+      "description": "A dot and a word. Status is a text colour, never a fill.",
+      "html": "<span class=\"ds-status ds-status-alert\"><span class=\"ds-status-dot\"></span>Needs attention</span> <span class=\"ds-status ds-status-ok\"><span class=\"ds-status-dot\"></span>Running normal</span> <span class=\"ds-status ds-status-none\"><span class=\"ds-status-dot\"></span>No readings</span>",
+      "css": ".ds-status { display:inline-flex; align-items:center; gap:8px; white-space:nowrap; font: 500 16px/1.5 Geist, system-ui, sans-serif; margin-right:16px; } .ds-status-dot { width:8px; height:8px; border-radius:9999px; background:currentColor; flex-shrink:0; } .ds-status-ok { color:var(--ok,#1f7a3d); } .ds-status-watch { color:var(--watch,#9a5b00); } .ds-status-alert { color:var(--alert,#b42318); } .ds-status-none { color:var(--muted,#5f5f5f); } .ds-status-none .ds-status-dot { background:transparent; border:1px solid currentColor; }"
+    },
+    {
+      "name": "Filter Chip",
+      "kind": "chip",
+      "refersTo": "filter-chip-on",
+      "description": "Dashboard status filter. Off is a line border; on inverts to ink, not yellow.",
+      "html": "<button class=\"ds-chip ds-chip-on\">All parts <span class=\"ds-chip-count\">8</span></button> <button class=\"ds-chip\">Needs attention <span class=\"ds-chip-count\">2</span></button>",
+      "css": ".ds-chip { min-height:40px; padding:0 12px; border-radius:4px; border:1px solid var(--line,#eaeaea); background:transparent; color:var(--foreground,#111); font: 500 14px/1.43 Geist, system-ui, sans-serif; white-space:nowrap; cursor:pointer; transition: background-color 150ms, border-color 150ms; margin-right:8px; } .ds-chip:hover { border-color:var(--muted,#5f5f5f); background:var(--surface,#f6f6f6); } .ds-chip-on, .ds-chip-on:hover { border-color:var(--foreground,#111); background:var(--foreground,#111); color:var(--background,#fff); } .ds-chip-count { font-variant-numeric:tabular-nums; opacity:.6; } .ds-chip:focus-visible { outline:2px solid var(--foreground,#111); outline-offset:2px; }"
+    },
+    {
+      "name": "Role Toggle",
+      "kind": "nav",
+      "refersTo": "role-toggle",
+      "description": "Two-segment View-as switch. The only accent-filled toggle in the system.",
+      "html": "<div class=\"ds-toggle\" role=\"group\"><button class=\"ds-seg ds-seg-on\" aria-pressed=\"true\">Operator</button><button class=\"ds-seg\" aria-pressed=\"false\">Technician</button></div>",
+      "css": ".ds-toggle { display:grid; grid-template-columns:1fr 1fr; padding:4px; border:1px solid var(--line,#eaeaea); border-radius:4px; width:max-content; } .ds-seg { min-height:44px; padding:0 20px; border:0; border-radius:2px; background:transparent; color:var(--muted,#5f5f5f); font: 500 14px/1.43 Geist, system-ui, sans-serif; cursor:pointer; transition: color 150ms, background-color 150ms; } .ds-seg:hover { color:var(--foreground,#111); } .ds-seg-on, .ds-seg-on:hover { background:var(--accent,#ffcd11); color:var(--accent-ink,#111); } .ds-seg:focus-visible { outline:2px solid var(--foreground,#111); outline-offset:2px; }"
+    },
+    {
+      "name": "Ruled Row",
+      "kind": "card",
+      "refersTo": "ruled-row",
+      "description": "The list item. A 1px rule below, no box; tappable rows wash with surface on hover and carry a chevron.",
+      "html": "<ol class=\"ds-list\"><li class=\"ds-row\"><span class=\"ds-row-dot ds-row-dot-alert\"></span><span class=\"ds-row-body\"><span class=\"ds-row-title\">Main hydraulic pump <span class=\"ds-row-meta\">Right side, under cover</span></span><span class=\"ds-row-sub\">Case drain flow 9.2 L/min, Needs attention</span></span><svg class=\"ds-row-chev\" viewBox=\"0 0 20 20\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 8l5 5 5-5\"/></svg></li></ol>",
+      "css": ".ds-list { list-style:none; margin:0; padding:0; border-top:1px solid var(--line,#eaeaea); font-family: Geist, system-ui, sans-serif; color:var(--foreground,#111); } .ds-row { display:flex; align-items:flex-start; gap:12px; min-height:56px; padding:14px 0; border-bottom:1px solid var(--line,#eaeaea); cursor:pointer; } .ds-row:hover { background:var(--surface,#f6f6f6); } .ds-row-dot { margin-top:7px; width:8px; height:8px; border-radius:9999px; background:currentColor; flex-shrink:0; } .ds-row-dot-alert { color:var(--alert,#b42318); } .ds-row-body { flex:1; min-width:0; display:block; } .ds-row-title { display:block; font-weight:500; font-size:16px; line-height:1.375; } .ds-row-meta { font-weight:400; font-size:14px; color:var(--muted,#5f5f5f); margin-left:8px; } .ds-row-sub { display:block; margin-top:2px; font-size:14px; color:var(--muted,#5f5f5f); } .ds-row-chev { width:16px; height:16px; margin-top:6px; color:var(--muted,#5f5f5f); flex-shrink:0; transition: transform 200ms; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Service Manual Page",
+    "overview": "One neutral ground, 1px rules to divide it, one yellow thing to press. Content is set in Geist and the hierarchy is carried by size and weight, not by boxes, tints or shadows. Every screen is a column of ruled sections; status is a coloured dot and a word, never a fill. Both colour schemes come free from prefers-color-scheme; nothing is hard-coded except Cat yellow.",
+    "keyCharacteristics": ["hairline rules, not cards", "yellow once per page", "dot + word status", "4px corners", "44px+ tap targets", "drawn 20-grid stroke icons", "flat everywhere except the camera"],
+    "rules": [
+      { "name": "The One Yellow Rule", "body": "A page has one yellow control: the thing the visitor came to do. A second action is btnSecondary (ink border), everything else is btnGhost. State switches (filter chips) invert to ink, not yellow.", "section": "colors" },
+      { "name": "The Dot Not Fill Rule", "body": "Status never tints a background, border or row. It is StatusMark (8px dot + word) or a 6px dot + short word at 12px inside readings.", "section": "colors" },
+      { "name": "The Weight Not Size Rule", "body": "Adjacent levels differ by weight or colour before they differ by size; no uppercase, no letter-spaced labels, no eyebrows above headings.", "section": "typography" }
+    ],
+    "dos": [
+      "Do compose from ui.ts, StatusMark and icons.tsx; new screens should add no new colour, radius or shadow.",
+      "Do separate content with border-t border-line sections and border-b rows; let 48px gaps breathe.",
+      "Do spend yellow once per page, on the primary action, and keep it on the role toggle, dictation state, \"Just saved\" and the \"Next step\" square.",
+      "Do keep every tappable thing at least 44px tall and make every hover state also work without hover.",
+      "Do use Geist Mono + tabular-nums for numbers that line up (readings, hours, tag ids)."
+    ],
+    "donts": [
+      "Don't put content in nested cards or rounded tinted boxes; the dashboard notice (border border-line bg-surface) is the only bordered box, and it is flat.",
+      "Don't use status colour as a fill, pill, badge or coloured left border; dot + word only.",
+      "Don't add shadows or gradients outside the dialog backdrop and the live camera overlays.",
+      "Don't write eyebrows, kickers, uppercase or letter-spaced labels above headings.",
+      "Don't use emoji, glyph fonts or icon packages; draw the icon in icons.tsx.",
+      "Don't hard-code hex or Tailwind palette colours (neutral-*, red-*) on page UI; use the tokens so dark mode holds."
+    ]
+  }
+}

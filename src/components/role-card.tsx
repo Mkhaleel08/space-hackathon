@@ -39,7 +39,7 @@ export default function RoleCard({ id }: { id: string }) {
   }
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span id="view-as-label" className="text-sm text-muted">View as</span>
         <div role="group" aria-labelledby="view-as-label" className="grid grid-cols-2 rounded-ctl border border-line p-1">
           {(["operator", "technician"] as const).map(value => (
