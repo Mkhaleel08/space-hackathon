@@ -47,10 +47,11 @@ type PanelId = "head" | "next" | "memory";
 
 const DECODE_INTERVAL_MS = 90;
 const DECODE_WIDTH = 420;
-const LOST_AFTER_MS = 1200; // fade the node once the label has been out of frame this long
-const REMOVE_AFTER_MS = 2600; // then drop it
+const LOST_AFTER_MS = 700; // the label has been out of frame this long: hide its marks, fade its node
+const REMOVE_AFTER_MS = 1600; // then drop it
 const SMOOTH_TAU_MS = 70; // per-frame easing time constant; ~3x this to settle
 const CHIP_W = 200; // compact node size, CSS px
+const CHIP_W_NARROW = 136; // when labels crowd each other: dot + name only
 const CHIP_H = 44;
 const CHIP_GAP = 14; // between a label and its node
 const DOT_R = 5;
@@ -188,7 +189,6 @@ export default function ArView() {
   const detectorRef = useRef<ArucoDetector | null>(null);
   const tickCountRef = useRef(0);
   const startedRef = useRef(false);
-  const prevCountRef = useRef(0);
   const openRef = useRef<string | null>(null);
 
   const [view, setView] = useState<ViewState>("idle");
@@ -319,9 +319,8 @@ export default function ArView() {
     }
   }, [visibleIds, role]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Which node is open: the first label seen opens by itself so a single tag
-  // still shows its card without a tap; after that, taps decide. A node whose
-  // label has gone closes. Decided in the frame loop, mirrored in openRef.
+  // Which node is open: only a tap opens one, nothing opens by itself. A node
+  // whose label has gone closes. Decided in the frame loop, mirrored in openRef.
   const openNode = useCallback((id: string | null) => {
     openRef.current = id;
     setOpenId(id);
@@ -455,8 +454,6 @@ export default function ArView() {
     next.sort((x, y) => x.firstSeen - y.firstSeen);
     const current = openRef.current;
     if (current && !next.some((x) => x.id === current)) openNode(null);
-    else if (!current && prevCountRef.current === 0 && next.length > 0) openNode(next[0].id);
-    prevCountRef.current = next.length;
     setAnchors(next);
   }
 
@@ -570,14 +567,27 @@ export default function ArView() {
   // label (below it when there is no room), nudged apart when two would
   // overlap. While a card is open the other labels step back entirely so the
   // panels have the screen; the X on the card brings the chips back.
-  type Chip = { id: string; left: number; top: number; above: boolean; c: Pt; lost: boolean };
+  // A chip stays over its own label: centred above it, below it only when the
+  // top bar is in the way. When another label is close enough that full chips
+  // would collide, both go narrow (dot + name). A chip that still collides
+  // slides sideways, never up or down into someone else's label.
+  type Chip = { id: string; left: number; top: number; w: number; above: boolean; c: Pt; lost: boolean };
   const chips: Chip[] = [];
   if (size.w && !open) {
+    const live = anchors.filter((a) => !a.lost);
+    const centers = new Map(anchors.map((a) => [a.id, center(a.quad)] as const));
     for (const a of anchors) {
-      const c = center(a.quad);
+      const c = centers.get(a.id)!;
+      const crowded = live.some((o) => {
+        if (o.id === a.id) return false;
+        const oc = centers.get(o.id)!;
+        return Math.abs(oc.x - c.x) < CHIP_W + 8 && Math.abs(oc.y - c.y) < CHIP_H * 2 + CHIP_GAP;
+      });
+      const w = crowded ? CHIP_W_NARROW : CHIP_W;
       const ys = a.quad.map((p) => p.y);
       const minY = Math.min(...ys), maxY = Math.max(...ys);
-      const left = Math.min(Math.max(c.x - CHIP_W / 2, GUTTER), size.w - CHIP_W - GUTTER);
+      const clampX = (x: number) => Math.min(Math.max(x, GUTTER), size.w - w - GUTTER);
+      let left = clampX(c.x - w / 2);
       let above = true;
       let top = minY - CHIP_GAP - CHIP_H;
       if (top < TOP_BAR + 4) {
@@ -585,10 +595,13 @@ export default function ArView() {
         top = Math.min(maxY + CHIP_GAP, size.h - GUTTER - CHIP_H);
       }
       for (const other of chips) {
-        const overlaps = Math.abs(other.left - left) < CHIP_W + 6 && Math.abs(other.top - top) < CHIP_H + 6;
-        if (overlaps) top = above ? other.top - CHIP_H - 6 : other.top + CHIP_H + 6;
+        const sameRow = Math.abs(other.top - top) < CHIP_H + 6;
+        const overlap = Math.min(left + w, other.left + other.w) - Math.max(left, other.left) + 6;
+        if (!sameRow || overlap <= 0) continue;
+        // Slide away from the other chip, on the side its own label is on.
+        left = clampX(c.x >= other.c.x ? other.left + other.w + 6 : other.left - w - 6);
       }
-      chips.push({ id: a.id, left, top, above, c, lost: a.lost });
+      chips.push({ id: a.id, left, top, w, above, c, lost: a.lost });
     }
   }
 
@@ -625,7 +638,7 @@ export default function ArView() {
       {/* Label outlines, a dot on each label, and lines to the nodes */}
       {running && anchors.length > 0 && size.w > 0 && (
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${size.w} ${size.h}`} aria-hidden="true">
-          {(open ? [open] : anchors).map((a) => (
+          {(open ? [open] : anchors.filter((a) => !a.lost)).map((a) => (
             <polygon
               key={a.id}
               points={a.quad.map((p) => `${p.x},${p.y}`).join(" ")}
@@ -637,9 +650,10 @@ export default function ArView() {
             />
           ))}
           {chips.map((ch) => {
-            const to = { x: ch.left + CHIP_W / 2, y: ch.above ? ch.top + CHIP_H : ch.top };
+            if (ch.lost) return null;
+            const to = { x: Math.min(Math.max(ch.c.x, ch.left + 18), ch.left + ch.w - 18), y: ch.above ? ch.top + CHIP_H : ch.top };
             return (
-              <g key={ch.id} className={`transition-opacity duration-300 ${ch.lost ? "opacity-30" : "opacity-100"}`}>
+              <g key={ch.id}>
                 <Leader from={exitCircle(ch.c, DOT_R + 2, to)} to={to} />
                 <Dot c={ch.c} />
               </g>
@@ -722,7 +736,7 @@ export default function ArView() {
       {/* Compact nodes: one per label that is not open. Tap to open. */}
       {running &&
         chips.map((ch) => (
-          <ChipNode key={ch.id} id={ch.id} left={ch.left} top={ch.top} lost={ch.lost} state={cardFor(ch.id)} onOpen={openNode} />
+          <ChipNode key={ch.id} id={ch.id} left={ch.left} top={ch.top} width={ch.w} lost={ch.lost} state={cardFor(ch.id)} onOpen={openNode} />
         ))}
 
       {/* Panels on the plane */}
@@ -768,6 +782,7 @@ const ChipNode = memo(function ChipNode({
   id,
   left,
   top,
+  width,
   lost,
   state,
   onOpen,
@@ -775,10 +790,12 @@ const ChipNode = memo(function ChipNode({
   id: string;
   left: number;
   top: number;
+  width: number;
   lost: boolean;
   state: CardState;
   onOpen: (id: string) => void;
 }) {
+  const narrow = width < CHIP_W;
   const card = state.kind === "ready" ? state.card : null;
   const status = card ? worstStatus(card.readings) : null;
   const name = card ? card.component.name : state.kind === "missing" ? "Unknown part" : id;
@@ -787,12 +804,13 @@ const ChipNode = memo(function ChipNode({
       type="button"
       onClick={() => onOpen(id)}
       aria-label={`Open ${name}`}
-      style={{ ...glassStyle, width: CHIP_W, height: CHIP_H, transform: `translate3d(${left}px, ${top}px, 0)` }}
-      className={`${glass} absolute left-0 top-0 z-10 flex cursor-pointer items-center gap-2 px-3 text-left will-change-transform transition-opacity duration-300 focus-visible:outline-2 focus-visible:outline-white ${lost ? "opacity-40" : "opacity-100"}`}
+      tabIndex={lost ? -1 : 0}
+      style={{ ...glassStyle, width, height: CHIP_H, transform: `translate3d(${left}px, ${top}px, 0)` }}
+      className={`${glass} absolute left-0 top-0 z-10 flex cursor-pointer items-center gap-2 px-3 text-left will-change-transform transition-opacity duration-500 focus-visible:outline-2 focus-visible:outline-white ${lost ? "pointer-events-none opacity-0" : "opacity-100"}`}
     >
       <span aria-hidden="true" className={`h-2.5 w-2.5 shrink-0 rounded-full ${status ? dotColor[status] : "bg-white/40"}`} />
       <span className="min-w-0 flex-1 truncate text-[14px] font-medium leading-tight">{name}</span>
-      {status ? (
+      {narrow ? null : status ? (
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ring-1 ${pill[status]}`}>{shortStatus[status]}</span>
       ) : (
         <span className="shrink-0 font-mono text-[10px] text-white/50">{state.kind === "loading" ? "…" : ""}</span>
