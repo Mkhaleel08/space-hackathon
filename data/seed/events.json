@@ -158,5 +158,101 @@
     "detail": "Seal face had a small chip from a trapped rock. Drained and refilled 4.5 liters of 80W-90. No metal on the magnetic plug.",
     "author_role": "technician",
     "created_at": "2026-03-05T18:00:00Z"
+  },
+  {
+    "component_id": "car-brakes-lf",
+    "type": "repair",
+    "summary": "Front pads and rotors replaced, brake fluid flushed",
+    "detail": "Inner pads were down to 2 mm. Rotors had a lip, replaced rather than turned. Fluid was dark brown, full flush with DOT 3. Bled all four corners.",
+    "author_role": "technician",
+    "created_at": "2025-04-12T15:30:00Z"
+  },
+  {
+    "component_id": "car-brakes-lf",
+    "type": "inspection",
+    "summary": "Walkaround before a road trip, pedal firm, fluid at MAX",
+    "detail": null,
+    "author_role": "operator",
+    "created_at": "2025-07-03T07:10:00Z"
+  },
+  {
+    "component_id": "car-brakes-lf",
+    "type": "note",
+    "summary": "Brake fluid reservoir found just under MIN, topped up, no drips seen under the car",
+    "detail": "Noticed the brake warning light flicker on a hard stop. Reservoir was below MIN. Added about 100 ml. Looked under the car and at all four wheels, nothing wet.",
+    "author_role": "operator",
+    "created_at": "2026-02-18T18:40:00Z"
+  },
+  {
+    "component_id": "car-brakes-lf",
+    "type": "inspection",
+    "summary": "Pressure test held, no external leak found, fluid loss unexplained",
+    "detail": "Held 1,000 psi for 5 minutes with no drop. Lines, calipers, and hoses dry. Pads at 7 mm front, 6 mm rear so some level drop is normal wear, but 100 ml is more than wear explains. Suspect master cylinder seal weeping internally or into the booster. Marked the reservoir level with tape to watch.",
+    "author_role": "technician",
+    "created_at": "2026-03-02T16:00:00Z"
+  },
+  {
+    "component_id": "car-brakes-lf",
+    "type": "note",
+    "summary": "Fluid dropped below the tape mark again, about 5 mm in six weeks",
+    "detail": "Pedal still feels normal. No puddle. Not touching it until someone looks at the master cylinder.",
+    "author_role": "operator",
+    "created_at": "2026-04-15T08:05:00Z"
+  },
+  {
+    "component_id": "car-brakes-lf",
+    "type": "inspection",
+    "summary": "Pulled the master cylinder off the booster, found fluid inside the booster, master cylinder replaced",
+    "detail": "Rear seal on the master cylinder was leaking into the vacuum booster. About 60 ml pooled in the booster. Replaced master cylinder, bench bled, flushed system. Booster is still working but has been wetted; recommend checking it at the next service.",
+    "author_role": "technician",
+    "created_at": "2026-04-20T17:20:00Z"
+  },
+  {
+    "component_id": "car-brakes-lf",
+    "type": "inspection",
+    "summary": "Fluid level unchanged since the master cylinder swap, pedal firm",
+    "detail": "Level exactly on the tape mark after 5 months. Fix held.",
+    "author_role": "operator",
+    "created_at": "2026-09-26T07:30:00Z"
+  },
+  {
+    "component_id": "car-battery",
+    "type": "note",
+    "summary": "Slow crank on cold mornings, fine once started",
+    "detail": "Below about 35 \u00b0F it turns over twice before catching. Normal the rest of the day.",
+    "author_role": "operator",
+    "created_at": "2025-12-09T07:15:00Z"
+  },
+  {
+    "component_id": "car-battery",
+    "type": "inspection",
+    "summary": "Battery load tested, 12.3 V resting, 410 of 600 rated CCA, terminals corroded",
+    "detail": "Cleaned both terminals and put dielectric grease on. Battery date code is four years old. Passed the load test but with little margin. Expect to replace before next winter.",
+    "author_role": "technician",
+    "created_at": "2025-12-13T11:00:00Z"
+  },
+  {
+    "component_id": "car-air-filter",
+    "type": "repair",
+    "summary": "Engine air filter replaced at oil change",
+    "detail": "Old filter gray with a few leaves in the airbox. Cabin filter also replaced.",
+    "author_role": "technician",
+    "created_at": "2026-01-24T10:20:00Z"
+  },
+  {
+    "component_id": "car-tire-lf",
+    "type": "fault",
+    "summary": "Left front tire losing about 3 psi a week",
+    "detail": "Topped it up three Mondays in a row. No visible nail. Other three tires hold pressure.",
+    "author_role": "operator",
+    "created_at": "2026-06-02T08:00:00Z"
+  },
+  {
+    "component_id": "car-tire-lf",
+    "type": "repair",
+    "summary": "Found a screw in the left front tread, patched from the inside, rebalanced",
+    "detail": "Screw was in the center tread, repairable. Plug-patch applied, wheel rebalanced. Tread at 6/32 on this corner, matches the right side.",
+    "author_role": "technician",
+    "created_at": "2026-06-06T14:30:00Z"
   }
 ]
