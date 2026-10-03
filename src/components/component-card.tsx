@@ -22,10 +22,12 @@ export default function ComponentCard({
   card,
   savedEventId,
   noteForm,
+  checklist,
 }: {
   card: Card;
   savedEventId?: string;
   noteForm?: ReactNode;
+  checklist?: ReactNode;
 }) {
   const level = worstOf(card.readings);
   return (
@@ -58,7 +60,10 @@ export default function ComponentCard({
           <ArrowRight />
           Next step
         </h2>
-        <p className="whitespace-pre-wrap">{card.next_step}</p>
+        <div>
+          <p className="whitespace-pre-wrap">{card.next_step}</p>
+          {checklist}
+        </div>
       </section>
       <div className={s.detailOverview}>
         <section aria-labelledby="summary-heading">

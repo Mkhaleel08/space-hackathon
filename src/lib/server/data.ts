@@ -101,7 +101,7 @@ export async function listComponents(): Promise<Component[]> {
 // the wording is stable across Vercel instances and cold starts. If the table
 // is missing or errors, the card still works; it just regenerates.
 
-type CardText = { summary: string; next_step: string };
+type CardText = { summary: string; next_step: string; checklist: string[] };
 const cardTextMemory = new Map<string, CardText>();
 
 export async function getCachedCardText(key: string): Promise<CardText | null> {
@@ -110,7 +110,7 @@ export async function getCachedCardText(key: string): Promise<CardText | null> {
   if (!hasSupabase()) return null;
   const { data, error } = await supabase()
     .from("card_cache")
-    .select("summary, next_step")
+    .select("summary, next_step, checklist")
     .eq("key", key)
     .maybeSingle();
   if (error) {
@@ -118,8 +118,9 @@ export async function getCachedCardText(key: string): Promise<CardText | null> {
     return null;
   }
   if (!data) return null;
-  cardTextMemory.set(key, data as CardText);
-  return data as CardText;
+  const text: CardText = { summary: data.summary, next_step: data.next_step, checklist: Array.isArray(data.checklist) ? data.checklist : [] };
+  cardTextMemory.set(key, text);
+  return text;
 }
 
 export async function saveCardText(key: string, text: CardText): Promise<void> {
