@@ -3,38 +3,67 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import type { ComponentCard as Card, Reading, Role } from "@/lib/types";
+import {
+  apply,
+  center,
+  exitCircle,
+  homography,
+  inside,
+  matrix3d,
+  meanSide,
+  nearestEdgeMid,
+  readability,
+  rectQuad,
+  type Pt,
+  type Quad,
+} from "@/lib/homography";
 
 /**
- * Live view: the camera stays open and the part's card floats over the video,
- * pinned to the QR code with a leader line. Decoding runs on downscaled frames
- * with jsQR because it reports the code's corner points; html5-qrcode does not.
+ * Live view. The camera stays open; when a QR label is in frame its four
+ * corners define a plane, and three glass panels (status, next step, memory)
+ * are drawn on that plane beside the label with leader lines flowing out from
+ * a ring on the code. If the plane is viewed too obliquely or the panels would
+ * leave the screen, the same panels fall back to a flat stack near the code.
+ *
+ * Decoding runs on downscaled frames with jsQR because it reports corner
+ * points; html5-qrcode does not.
  */
 
-type Pt = { x: number; y: number };
-type Anchor = { id: string; corners: Pt[]; seenAt: number };
+type Anchor = { id: string; quad: Quad; seenAt: number };
 type CardState =
   | { kind: "loading" }
   | { kind: "ready"; card: Card }
   | { kind: "missing" }
   | { kind: "error" };
 type ViewState = "idle" | "opening" | "running" | "error";
+type PanelId = "head" | "next" | "memory";
 
 const DECODE_INTERVAL_MS = 90;
 const DECODE_WIDTH = 420;
 const LOST_AFTER_MS = 1200;
 const GUTTER = 12;
+const PANEL_W = 300; // natural CSS px; the homography scales it to the scene
+const PANEL_GAP_U = 0.14; // marker units between panels
+const SIDE_GAP_U = 0.45; // marker units between the code and the panel column
+const MIN_READABILITY = 0.55;
 const ROLE_KEY = "machine-memory:role";
 const ROLE_EVENT = "machine-memory:role-updated";
+const PANELS: PanelId[] = ["head", "next", "memory"];
 
 const stripe: Record<Reading["status"], string> = {
-  ok: "bg-emerald-500",
+  ok: "bg-emerald-400",
   watch: "bg-amber-400",
   alert: "bg-red-500",
 };
 const pill: Record<Reading["status"], string> = {
-  ok: "bg-emerald-100 text-emerald-900",
-  watch: "bg-amber-100 text-amber-900",
-  alert: "bg-red-100 text-red-900",
+  ok: "bg-emerald-400/20 text-emerald-200 ring-emerald-300/40",
+  watch: "bg-amber-400/20 text-amber-100 ring-amber-300/50",
+  alert: "bg-red-500/25 text-red-100 ring-red-300/50",
+};
+const statusWord: Record<Reading["status"], string> = {
+  ok: "Running normal",
+  watch: "Watch closely",
+  alert: "Needs attention",
 };
 
 function worstStatus(readings: Reading[]): Reading["status"] {
@@ -52,7 +81,6 @@ function readStoredRole(): Role {
   }
   return "operator";
 }
-
 function subscribeRole(callback: () => void) {
   window.addEventListener(ROLE_EVENT, callback);
   window.addEventListener("storage", callback);
@@ -87,11 +115,10 @@ export default function ArView() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef(0);
   const lastDecodeRef = useRef(0);
-  const smoothRef = useRef<Pt[] | null>(null);
+  const smoothRef = useRef<Quad | null>(null);
   const cacheRef = useRef(new Map<string, Card>());
   const jsqrRef = useRef<typeof import("jsqr").default | null>(null);
 
@@ -99,11 +126,10 @@ export default function ArView() {
   const [error, setError] = useState("");
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const [lost, setLost] = useState(false);
-  // Role is shared with the full card page through the same storage key.
   const role = useSyncExternalStore(subscribeRole, readStoredRole, serverRole);
   const [cardState, setCardState] = useState<CardState>({ kind: "loading" });
   const [size, setSize] = useState({ w: 0, h: 0 });
-  const [cardH, setCardH] = useState(240);
+  const [heights, setHeights] = useState<Record<PanelId, number>>({ head: 96, next: 110, memory: 150 });
 
   function selectRole(next: Role) {
     try {
@@ -114,16 +140,13 @@ export default function ArView() {
     window.dispatchEvent(new Event(ROLE_EVENT));
   }
 
-  // Measure the card so it can be placed above or below the code.
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setCardH(el.offsetHeight));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [anchor?.id, cardState.kind]);
+  // Panel elements are kept in state (set from callback refs) so the
+  // measuring effect can re-observe when a panel mounts or unmounts.
+  const [panelEls, setPanelEls] = useState<Record<PanelId, HTMLDivElement | null>>({ head: null, next: null, memory: null });
+  const bindPanel = (id: PanelId) => (el: HTMLDivElement | null) =>
+    setPanelEls((prev) => (prev[id] === el ? prev : { ...prev, [id]: el }));
 
-  // Track the container size so overlay math survives rotation.
+  // Container size, so overlay math survives rotation.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -133,6 +156,29 @@ export default function ArView() {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Panel natural heights, so the layout can stack them in marker units.
+  useEffect(() => {
+    const ro = new ResizeObserver(() => {
+      setHeights((prev) => {
+        const next = { ...prev };
+        let changed = false;
+        for (const id of PANELS) {
+          const h = panelEls[id]?.offsetHeight;
+          if (h !== undefined && Math.abs(h - prev[id]) > 1) {
+            next[id] = h;
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    });
+    for (const id of PANELS) {
+      const el = panelEls[id];
+      if (el) ro.observe(el);
+    }
+    return () => ro.disconnect();
+  }, [panelEls]);
 
   // Stop everything on unmount.
   useEffect(() => {
@@ -245,54 +291,124 @@ export default function ArView() {
     const { topLeftCorner: a, topRightCorner: b, bottomRightCorner: c, bottomLeftCorner: d } = code.location;
     const raw = [a, b, c, d].map((p) =>
       toScreen({ x: p.x / k, y: p.y / k }, vw, vh, el.clientWidth, el.clientHeight),
-    );
-    // Light smoothing so the pin does not jitter with hand shake.
+    ) as Quad;
+    // Light smoothing so the panels do not jitter with hand shake.
     const prev = smoothRef.current;
-    const corners = prev && prev.length === 4
-      ? raw.map((p, i) => ({ x: prev[i].x + (p.x - prev[i].x) * 0.45, y: prev[i].y + (p.y - prev[i].y) * 0.45 }))
+    const quad = prev
+      ? (raw.map((p, i) => ({ x: prev[i].x + (p.x - prev[i].x) * 0.45, y: prev[i].y + (p.y - prev[i].y) * 0.45 })) as Quad)
       : raw;
-    smoothRef.current = corners;
+    smoothRef.current = quad;
 
     setAnchor((current) => {
       if (!current || current.id !== id) {
         smoothRef.current = raw;
         if ("vibrate" in navigator) navigator.vibrate?.(25);
-        return { id, corners: raw, seenAt: performance.now() };
+        return { id, quad: raw, seenAt: performance.now() };
       }
-      return { id, corners, seenAt: performance.now() };
+      return { id, quad, seenAt: performance.now() };
     });
   }
 
-  // Card placement: below the code if it fits, else above, else docked.
-  const cardW = Math.min(size.w - GUTTER * 2, 380);
-  let cardX = GUTTER;
-  let cardY = size.h - cardH - GUTTER - 8;
-  let docked = true;
-  let center: Pt | null = null;
-  if (anchor && size.w && !lost) {
-    const xs = anchor.corners.map((p) => p.x);
-    const ys = anchor.corners.map((p) => p.y);
-    const minX = Math.min(...xs), maxX = Math.max(...xs);
-    const minY = Math.min(...ys), maxY = Math.max(...ys);
-    center = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 };
-    cardX = Math.min(Math.max(center.x - cardW / 2, GUTTER), size.w - cardW - GUTTER);
-    const topBar = 72;
-    if (maxY + 20 + cardH <= size.h - GUTTER) {
-      cardY = maxY + 20;
-      docked = false;
-    } else if (minY - 20 - cardH >= topBar) {
-      cardY = minY - 20 - cardH;
-      docked = false;
+  // ---- Layout -----------------------------------------------------------
+  // Panels live in marker units: the QR code is the unit square, y down.
+  // Choose a column width so panels read at a sane size on screen whatever
+  // the code's distance, then try to lay the column on the plane. Fall back
+  // to a flat stack when the plane is too oblique or runs off screen.
+  const tracked = Boolean(anchor && size.w && !lost);
+  let mode: "world" | "flat" = "flat";
+  let panelTransforms: Partial<Record<PanelId, string>> = {};
+  let panelQuads: Partial<Record<PanelId, Quad>> = {};
+  let ring: { c: Pt; r: number } | null = null;
+  let flatX = GUTTER;
+  let flatY = size.h - GUTTER;
+  let flatBelow = true;
+  const flatW = Math.min(size.w - GUTTER * 2, 360);
+  const flatH = heights.head + heights.next + heights.memory + 16;
+
+  if (tracked && anchor) {
+    const q = anchor.quad;
+    const side = Math.max(meanSide(q), 1);
+    const c = center(q);
+    ring = { c, r: Math.max(side * 0.8, 36) };
+
+    const H = homography(rectQuad(0, 0, 1, 1), q);
+    const wantPx = Math.min(Math.max(side * 2.6, 230), Math.min(380, size.w - GUTTER * 2));
+    const wU = wantPx / side;
+    const scale = wU / PANEL_W; // marker units per CSS px of panel
+    const hU: Record<PanelId, number> = {
+      head: heights.head * scale,
+      next: heights.next * scale,
+      memory: heights.memory * scale,
+    };
+    const totalU = hU.head + hU.next + hU.memory + PANEL_GAP_U * 2;
+    const onRight = c.x <= size.w / 2;
+    const x0 = onRight ? 1 + SIDE_GAP_U : -SIDE_GAP_U - wU;
+    let y = 0.5 - totalU / 2;
+
+    if (H) {
+      const quads: Partial<Record<PanelId, Quad>> = {};
+      let ok = true;
+      for (const id of PANELS) {
+        const mq = rectQuad(x0, y, wU, hU[id]);
+        const sq = mq.map((p) => apply(H, p)) as Quad;
+        if (!inside(sq, size.w, size.h, 6) || readability(sq) < MIN_READABILITY) ok = false;
+        quads[id] = sq;
+        y += hU[id] + PANEL_GAP_U;
+      }
+      if (ok) {
+        const transforms: Partial<Record<PanelId, string>> = {};
+        for (const id of PANELS) {
+          const t = matrix3d(PANEL_W, heights[id], quads[id]!);
+          if (!t) ok = false;
+          else transforms[id] = t;
+        }
+        if (ok) {
+          mode = "world";
+          panelTransforms = transforms;
+          panelQuads = quads;
+        }
+      }
     }
+
+    if (mode === "flat") {
+      const ys = q.map((p) => p.y);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      flatX = Math.min(Math.max(c.x - flatW / 2, GUTTER), size.w - flatW - GUTTER);
+      if (maxY + 20 + flatH <= size.h - GUTTER) {
+        flatY = maxY + 20;
+        flatBelow = true;
+      } else if (minY - 20 - flatH >= 72) {
+        flatY = minY - 20 - flatH;
+        flatBelow = false;
+      } else {
+        flatY = size.h - flatH - GUTTER - 8;
+        ring = null; // docked; no line to draw
+      }
+    }
+  } else {
+    flatY = size.h - flatH - GUTTER - 8;
   }
-  const lineTarget: Pt | null = center && !docked
-    ? { x: Math.min(Math.max(center.x, cardX + 24), cardX + cardW - 24), y: cardY > center.y ? cardY : cardY + cardH }
-    : null;
 
   const running = view === "running";
+  const flatLine: { from: Pt; to: Pt } | null =
+    mode === "flat" && ring && anchor
+      ? {
+          from: exitCircle(ring.c, ring.r, { x: flatX + flatW / 2, y: flatBelow ? flatY : flatY + flatH }),
+          to: { x: Math.min(Math.max(ring.c.x, flatX + 24), flatX + flatW - 24), y: flatBelow ? flatY : flatY + flatH },
+        }
+      : null;
+
+  const panelNodes = (
+    <>
+      <Panel id="head" setRef={bindPanel("head")} state={cardState} partId={anchor?.id ?? ""} lost={lost} />
+      <Panel id="next" setRef={bindPanel("next")} state={cardState} partId={anchor?.id ?? ""} lost={lost} />
+      <Panel id="memory" setRef={bindPanel("memory")} state={cardState} partId={anchor?.id ?? ""} lost={lost} />
+    </>
+  );
 
   return (
     <div ref={containerRef} className="fixed inset-0 overflow-hidden bg-black text-white">
+      <style>{`@keyframes mm-flow { to { stroke-dashoffset: -28; } }`}</style>
       <video
         ref={videoRef}
         playsInline
@@ -301,33 +417,39 @@ export default function ArView() {
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${running ? "opacity-100" : "opacity-0"}`}
       />
 
-      {/* Reticle and leader line */}
+      {/* Ring on the code and leader lines to the panels */}
       {running && anchor && size.w > 0 && (
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${size.w} ${size.h}`} aria-hidden="true">
           <g className={`transition-opacity duration-300 ${lost ? "opacity-0" : "opacity-100"}`}>
             <polygon
-              points={anchor.corners.map((p) => `${p.x},${p.y}`).join(" ")}
-              fill="rgba(255,255,255,0.08)"
-              stroke="white"
-              strokeWidth="3"
+              points={anchor.quad.map((p) => `${p.x},${p.y}`).join(" ")}
+              fill="rgba(255,255,255,0.06)"
+              stroke="rgba(255,255,255,0.55)"
+              strokeWidth="1.5"
               strokeLinejoin="round"
             />
-            {anchor.corners.map((p, i) => (
-              <circle key={i} cx={p.x} cy={p.y} r="5" fill="white" />
-            ))}
-            {center && lineTarget && (
+            {ring && (
               <>
-                <line x1={center.x} y1={center.y} x2={lineTarget.x} y2={lineTarget.y} stroke="white" strokeWidth="2" strokeDasharray="6 5" />
-                <circle cx={center.x} cy={center.y} r="7" fill="white" />
-                <circle cx={center.x} cy={center.y} r="14" fill="none" stroke="white" strokeWidth="2" className="animate-ping" style={{ transformOrigin: `${center.x}px ${center.y}px` }} />
+                <circle cx={ring.c.x} cy={ring.c.y} r={ring.r} fill="none" stroke="rgba(0,0,0,0.18)" strokeWidth="3" />
+                <circle cx={ring.c.x} cy={ring.c.y} r={ring.r} fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.25" />
               </>
             )}
+            {ring && mode === "world" &&
+              PANELS.map((id) => {
+                const q = panelQuads[id];
+                if (!q) return null;
+                const to = nearestEdgeMid(q, ring!.c);
+                const from = exitCircle(ring!.c, ring!.r, to);
+                if (Math.hypot(to.x - from.x, to.y - from.y) < 12) return null;
+                return <Leader key={id} from={from} to={to} />;
+              })}
+            {flatLine && <Leader from={flatLine.from} to={flatLine.to} />}
           </g>
         </svg>
       )}
 
       {/* Top bar */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-3 bg-gradient-to-b from-black/70 to-transparent p-4 pt-[max(1rem,env(safe-area-inset-top))]">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 bg-gradient-to-b from-black/70 to-transparent p-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <Link href="/" className="pointer-events-auto flex min-h-11 items-center rounded-full bg-black/50 px-4 font-medium backdrop-blur focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
           ← Machine Memory
         </Link>
@@ -378,90 +500,148 @@ export default function ArView() {
         </p>
       )}
 
-      {/* Pinned card */}
-      {running && anchor && (
+      {/* Panels on the plane */}
+      {running && anchor && mode === "world" && (
+        <div className="absolute inset-0 z-10" aria-label="Part card" role="region">
+          {PANELS.map((id) => (
+            <div
+              key={id}
+              className="absolute left-0 top-0 origin-top-left transition-transform duration-100 ease-linear will-change-transform"
+              style={{ width: PANEL_W, transform: panelTransforms[id] }}
+            >
+              <Panel id={id} setRef={bindPanel(id)} state={cardState} partId={anchor.id} lost={lost} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Panels as a flat stack (oblique plane, edge of screen, or code lost) */}
+      {running && anchor && mode === "flat" && (
         <div
-          ref={cardRef}
           role="region"
           aria-label="Part card"
-          className="absolute left-0 top-0 transition-transform duration-150 ease-out will-change-transform"
-          style={{ width: cardW, transform: `translate3d(${cardX}px, ${cardY}px, 0)` }}
+          className="absolute left-0 top-0 z-10 flex flex-col gap-2 transition-transform duration-150 ease-out will-change-transform"
+          style={{ width: flatW, transform: `translate3d(${flatX}px, ${flatY}px, 0)` }}
         >
-          <PinnedCard id={anchor.id} state={cardState} lost={lost} />
+          {panelNodes}
         </div>
       )}
     </div>
   );
 }
 
-function PinnedCard({ id, state, lost }: { id: string; state: CardState; lost: boolean }) {
-  const href = `/components/${encodeURIComponent(id)}`;
-  const shell = "overflow-hidden rounded-2xl bg-white/95 text-neutral-900 shadow-2xl shadow-black/40 backdrop-blur";
+function Leader({ from, to }: { from: Pt; to: Pt }) {
+  return (
+    <g>
+      <line x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
+      <line
+        x1={from.x}
+        y1={from.y}
+        x2={to.x}
+        y2={to.y}
+        stroke="rgba(251,191,36,0.9)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeDasharray="3 11"
+        style={{ animation: "mm-flow 0.9s linear infinite" }}
+      />
+      <circle cx={from.x} cy={from.y} r="2.5" fill="white" />
+      <circle cx={to.x} cy={to.y} r="3" fill="rgb(251,191,36)" />
+    </g>
+  );
+}
 
-  if (state.kind === "loading") {
+/** Frosted dark glass: body tint, top sheen, hairline edge. No backdrop-filter, it fights matrix3d on iOS. */
+const glass =
+  "rounded-2xl border border-white/15 bg-[linear-gradient(160deg,rgba(255,255,255,0.16),rgba(255,255,255,0.03)_38%,rgba(0,0,0,0)_60%),rgba(12,16,24,0.78)] text-white shadow-[0_8px_30px_rgba(0,0,0,0.45)]";
+
+function Panel({
+  id,
+  setRef,
+  state,
+  partId,
+  lost,
+}: {
+  id: PanelId;
+  setRef: (el: HTMLDivElement | null) => void;
+  state: CardState;
+  partId: string;
+  lost: boolean;
+}) {
+  const href = `/components/${encodeURIComponent(partId)}`;
+  const label = (text: string, extra = "") => (
+    <p className={`font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60 ${extra}`}>{text}</p>
+  );
+
+  if (state.kind !== "ready") {
+    if (id !== "head") return <div ref={setRef} className="h-0" aria-hidden="true" />;
     return (
-      <div className={`${shell} p-4`} aria-busy="true">
-        <div className="h-1.5 w-full rounded-full bg-neutral-300" />
-        <p className="mt-3 text-sm font-medium uppercase tracking-wide text-neutral-500">Found {id}</p>
-        <p className="mt-1 text-lg font-semibold">Reading the machine’s memory…</p>
-      </div>
-    );
-  }
-  if (state.kind === "missing") {
-    return (
-      <div className={`${shell} p-4`}>
-        <div className="h-1.5 w-full rounded-full bg-neutral-400" />
-        <p className="mt-3 text-lg font-semibold">Unknown part</p>
-        <p className="mt-1 text-sm text-neutral-600">This label isn’t in the machine’s history.</p>
-      </div>
-    );
-  }
-  if (state.kind === "error") {
-    return (
-      <div className={`${shell} p-4`}>
-        <div className="h-1.5 w-full rounded-full bg-red-500" />
-        <p className="mt-3 text-lg font-semibold">Couldn’t load this part</p>
-        <Link href={href} className="mt-3 inline-flex min-h-11 items-center font-medium underline underline-offset-4">Open full card</Link>
+      <div ref={setRef} className={`${glass} p-4`} aria-busy={state.kind === "loading"}>
+        {label(state.kind === "loading" ? `Found ${partId}` : partId)}
+        <p className="mt-1 text-lg font-semibold leading-tight">
+          {state.kind === "loading" && "Reading the machine’s memory…"}
+          {state.kind === "missing" && "Unknown part"}
+          {state.kind === "error" && "Couldn’t load this part"}
+        </p>
+        {state.kind === "missing" && <p className="mt-1 text-sm text-white/70">This label isn’t in the machine’s history.</p>}
+        {state.kind === "error" && (
+          <Link href={href} className="mt-3 inline-flex min-h-11 items-center font-medium underline underline-offset-4">Open full card</Link>
+        )}
       </div>
     );
   }
 
   const { card } = state;
   const status = worstStatus(card.readings);
-  return (
-    <div className={shell}>
-      <div className={`h-1.5 w-full ${stripe[status]}`} />
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="truncate text-xl font-semibold leading-tight">{card.component.name}</h2>
-            <p className="truncate text-sm text-neutral-600">{card.component.location}</p>
+
+  if (id === "head") {
+    return (
+      <div ref={setRef} className={`${glass} overflow-hidden`}>
+        <div className={`h-1 w-full ${stripe[status]}`} />
+        <div className="p-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              {label(card.asset.name)}
+              <h2 className="mt-0.5 truncate text-[19px] font-semibold leading-tight">{card.component.name}</h2>
+              <p className="truncate text-xs text-white/70">{card.component.location}</p>
+            </div>
+            <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${pill[status]}`}>
+              {lost ? "Last seen" : statusWord[status]}
+            </span>
           </div>
-          <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-bold uppercase ${pill[status]}`}>
-            {lost ? "last seen" : status}
-          </span>
+          {card.readings.length > 0 && (
+            <ul className="mt-2.5 flex gap-1.5 overflow-hidden" aria-label="Readings">
+              {card.readings.map((r) => (
+                <li key={r.label} className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] ring-1 ${pill[r.status]}`}>
+                  {r.value}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        <p className="mt-3 line-clamp-3 text-[15px] leading-snug text-neutral-800">{card.summary}</p>
-        <div className="mt-3 rounded-xl bg-neutral-900 p-3 text-white">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Next step</p>
-          <p className="mt-1 line-clamp-3 font-medium leading-snug">{card.next_step}</p>
-        </div>
-        {card.readings.length > 0 && (
-          <ul className="mt-3 flex gap-1.5 overflow-x-auto" aria-label="Readings">
-            {card.readings.map((r) => (
-              <li key={r.label} className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${pill[r.status]}`}>
-                {r.label} {r.value}
-              </li>
-            ))}
-          </ul>
-        )}
-        <Link
-          href={href}
-          className="mt-3 flex min-h-12 items-center justify-center rounded-full bg-black px-4 font-medium text-white hover:bg-neutral-800 focus-visible:outline-2 focus-visible:outline-offset-2"
-        >
-          History &amp; add a note →
-        </Link>
       </div>
+    );
+  }
+
+  if (id === "next") {
+    return (
+      <div ref={setRef} className={`${glass} p-3.5`}>
+        {label("Next step", "text-amber-200/90")}
+        <p className="mt-1 line-clamp-3 text-[17px] font-semibold leading-snug">{card.next_step}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={setRef} className={`${glass} p-3.5`}>
+      {label("What this part remembers")}
+      <p className="mt-1 line-clamp-3 text-[14px] leading-snug text-white/85">{card.summary}</p>
+      <Link
+        href={href}
+        className="mt-3 flex min-h-11 items-center justify-center rounded-full bg-white px-4 text-sm font-medium text-black hover:bg-neutral-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+      >
+        History &amp; add a note →
+      </Link>
     </div>
   );
 }
