@@ -6,9 +6,12 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed": "node --env-file=.env.local scripts/seed.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "html5-qrcode": "^2.3.8",
     "next": "16.3.8",
     "react": "19.2.8",
     "react-dom": "19.2.8"

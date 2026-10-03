@@ -1,36 +1,58 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Machine Memory
 
-## Getting Started
+> A first-week technician can inspect a machine like a 20-year veteran, because the machine remembers.
 
-First, run the development server:
+Hack to the Future, Krasan prompt + Caterpillar track. Phone web app: point the
+camera at a QR code on a component, get a card with that part's history, live
+readings, and next step. Leave a spoken note, and the next person who scans it
+sees it. The write-back loop is the demo.
+
+Full plan: [`docs/game-plan.md`](docs/game-plan.md). Locked decisions:
+[`docs/decisions.md`](docs/decisions.md). Frontend/backend seam:
+[`docs/api-contract.md`](docs/api-contract.md).
+
+## Stack
+
+Next.js 16 (App Router) on Vercel · Supabase Postgres · `html5-qrcode` · LLM API
+(provider decided at lock) · browser speech recognition with typed fallback.
+
+## Who owns what
+
+| Person | Role | Folders |
+|---|---|---|
+| Vinteeth | frontend | `src/app/` pages, `src/components/`, `src/hooks/` |
+| Neeraj | backend | `src/app/api/`, `src/lib/server/`, `supabase/` |
+| Mehran | product | `data/seed/`, `scripts/`, `docs/`, `public/qr/`, Devpost, pitch, phone testing, frontend overflow |
+
+**Shared, announce before editing:** `src/lib/types.ts`, `docs/api-contract.md`, `package.json`.
+
+## Workflow
+
+- `main` is always demo-able. If it's broken, fixing it is everyone's top priority.
+- Short branches named `yourname/feature`. Merge small and often. Pull before you push.
+- Stay in your folders. If you need something in someone else's, ask them in chat first.
+- No API keys in the repo, ever. `.env.local` is gitignored. If a key leaks, rotate it.
+- Feature freeze Saturday 5:00 AM. Nothing new after that.
+
+## Run it
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # fill in Supabase + LLM keys
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Camera access needs HTTPS on a phone, so test on the Vercel preview URL (every
+branch gets one) rather than localhost.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Database: run `supabase/schema.sql` once in the Supabase SQL editor, then
+`npm run seed` to load the demo data. **Run `npm run seed` before every demo.**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Milestones
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Camera opens on a real phone from the deployed URL
+2. Scanning a QR code shows a hardcoded card
+3. Card pulls real rows from Supabase
+4. Write-back: add a note, rescan, see it appear
+5. Role toggle changes the card wording
+6. Checklist crosses itself off (cut if behind)

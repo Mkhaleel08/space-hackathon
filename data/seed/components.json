@@ -1,0 +1,26 @@
+[
+  {
+    "id": "hyd-pump",
+    "asset_id": "cat-320-4471",
+    "name": "Main hydraulic pump",
+    "location": "Right side, behind access panel"
+  },
+  {
+    "id": "boom-cyl",
+    "asset_id": "cat-320-4471",
+    "name": "Boom cylinder",
+    "location": "Boom, left side"
+  },
+  {
+    "id": "engine-air",
+    "asset_id": "cat-320-4471",
+    "name": "Engine air filter",
+    "location": "Engine bay, top"
+  },
+  {
+    "id": "track-left",
+    "asset_id": "cat-320-4471",
+    "name": "Left track and final drive",
+    "location": "Undercarriage, left"
+  }
+]

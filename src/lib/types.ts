@@ -1,0 +1,63 @@
+/**
+ * Shared contract between frontend and backend.
+ *
+ * SHARED FILE. Changing a type here changes what the API returns and what the
+ * cards render. Tell the other two before you edit it, then merge fast.
+ */
+
+export type Role = "operator" | "technician";
+
+export type EventType = "fault" | "repair" | "inspection" | "note";
+
+export interface Asset {
+  id: string;
+  name: string; // e.g. "Cat 320 Excavator #4471"
+  model: string;
+  hours: number; // engine hours
+}
+
+export interface Component {
+  id: string; // also the QR code payload
+  asset_id: string;
+  name: string; // e.g. "Hydraulic pump"
+  location: string; // where on the machine, for the card header
+}
+
+export interface MachineEvent {
+  id: string;
+  component_id: string;
+  type: EventType;
+  summary: string; // one line, human readable
+  detail: string | null; // raw note text or structured detail
+  author_role: Role;
+  created_at: string; // ISO 8601
+}
+
+/** Live reading shown on the card. Simulated for the demo. */
+export interface Reading {
+  label: string; // "Pressure"
+  value: string; // "3,100 psi"
+  status: "ok" | "watch" | "alert";
+}
+
+/** What GET /api/components/[id]/card returns. One card per role. */
+export interface ComponentCard {
+  component: Component;
+  asset: Asset;
+  role: Role;
+  summary: string; // LLM-written, 2-3 sentences, worded for the role
+  next_step: string; // LLM-written, one imperative sentence
+  readings: Reading[];
+  recent_events: MachineEvent[]; // newest first, max 5
+}
+
+/** Body for POST /api/components/[id]/notes */
+export interface NewNoteRequest {
+  text: string; // spoken or typed, raw
+  author_role: Role;
+}
+
+/** Response for POST /api/components/[id]/notes */
+export interface NewNoteResponse {
+  event: MachineEvent; // the structured event the LLM produced
+}
