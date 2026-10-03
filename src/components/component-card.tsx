@@ -8,12 +8,15 @@ const dateFormat = new Intl.DateTimeFormat("en-US", {
 });
 const shortStatus: Record<Reading["status"], string> = { ok: "OK", watch: "Watch", alert: "Alert" };
 
-export default function ComponentCard({ card, savedEventId }: { card: Card; savedEventId?: string }) {
+const roleName: Record<string, string> = { operator: "the operator", technician: "the technician" };
+const typeName: Record<string, string> = { fault: "Fault", repair: "Repair", inspection: "Inspection", note: "Note" };
+
+export default function ComponentCard({ card, savedEventId, refreshKey = 0 }: { card: Card; savedEventId?: string; refreshKey?: number }) {
   const level = worstOf(card.readings);
   return (
     <article className="flex min-w-0 flex-col gap-12 break-words">
       <header>
-        <h1 className="text-[2rem] font-semibold leading-[1.1] tracking-tight">{card.component.name}</h1>
+        <h1 className="font-display text-[2.25rem] font-semibold leading-[1.05] tracking-tight">{card.component.name}</h1>
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
           <StatusMark level={level} />
           <span className="text-muted">{card.component.location}</span>
@@ -31,12 +34,12 @@ export default function ComponentCard({ card, savedEventId }: { card: Card; save
           <span aria-hidden="true" className="h-2.5 w-2.5 bg-accent" />
           Next step
         </h2>
-        <p className="mt-3 max-w-[32ch] whitespace-pre-wrap text-balance text-[1.375rem] font-semibold leading-snug">{card.next_step}</p>
+        <p key={`next-${refreshKey}`} className={`mt-3 max-w-[30ch] whitespace-pre-wrap text-balance font-display text-[1.625rem] font-semibold leading-[1.2] sm:text-[1.875rem] ${refreshKey ? "mm-refresh" : ""}`}>{card.next_step}</p>
       </section>
 
       <section aria-labelledby="summary-heading">
         <h2 id="summary-heading" className={h2}>What this part remembers</h2>
-        <p className="mt-3 max-w-[65ch] whitespace-pre-wrap leading-relaxed text-foreground/90">{card.summary}</p>
+        <p key={`summary-${refreshKey}`} className={`mt-3 max-w-[65ch] whitespace-pre-wrap leading-relaxed text-foreground/90 ${refreshKey ? "mm-refresh" : ""}`}>{card.summary}</p>
       </section>
 
       <section aria-labelledby="readings-heading">
@@ -63,13 +66,13 @@ export default function ComponentCard({ card, savedEventId }: { card: Card; save
       </section>
 
       <section aria-labelledby="events-heading">
-        <h2 id="events-heading" tabIndex={-1} className={`${h2} scroll-mt-6`}>Recent history</h2>
+        <h2 id="events-heading" tabIndex={-1} className={`${h2} scroll-mt-6 focus-visible:outline-none`}>Recent history</h2>
         {card.recent_events.length === 0 ? <p className="mt-3 text-muted">No events recorded for this part yet.</p> : (
           <ol className="mt-2 border-t border-line">
             {card.recent_events.slice(0, 5).map((event) => {
               const saved = event.id === savedEventId;
               return (
-                <li key={event.id} data-event-id={event.id} className="border-b border-line py-4">
+                <li key={event.id} data-event-id={event.id} className={`border-b border-line py-4 ${saved ? "mm-grow" : ""}`}>
                   {saved && (
                     <p role="status" className="mb-2">
                       <span className="inline-flex items-center gap-1.5 bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-ink">Just saved</span>
@@ -77,8 +80,8 @@ export default function ComponentCard({ card, savedEventId }: { card: Card; save
                     </p>
                   )}
                   <p className="font-medium leading-snug">{event.summary}</p>
-                  <p className="mt-1 text-sm text-muted">
-                    <span className="capitalize">{event.type}</span> · <span className="capitalize">{event.author_role}</span> ·{" "}
+                  <p className="mt-1 flex flex-wrap justify-between gap-x-4 text-sm text-muted">
+                    <span>{typeName[event.type] ?? event.type} by {roleName[event.author_role] ?? event.author_role}</span>
                     <time dateTime={event.created_at}>
                       {Number.isNaN(Date.parse(event.created_at)) ? "Date unavailable" : `${dateFormat.format(new Date(event.created_at))} UTC`}
                     </time>
