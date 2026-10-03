@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Html5Qrcode } from "html5-qrcode";
+import { Scan } from "./icons";
 import { btnPrimary, meta } from "./ui";
 
 type CameraState = "idle" | "opening" | "running" | "stopping" | "error";
@@ -136,7 +137,7 @@ export default function CameraScanner() {
         <div id="component-camera" className="h-full w-full [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
         {!active && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8 text-center text-sm text-muted">
-            {state === "opening" ? "Allow camera access when your browser asks." : "The camera preview appears here."}
+            <div className="flex flex-col items-center gap-5"><Scan className="h-14 w-14 opacity-50" /><p>{state === "opening" ? "Allow camera access when your browser asks." : "Position the QR label inside the camera view."}</p><span className="text-xs">Your camera opens only when you’re ready.</span></div>
           </div>
         )}
       </div>
