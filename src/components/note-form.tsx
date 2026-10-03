@@ -195,7 +195,7 @@ export default function NoteForm({ id, role, onSaved, onCheckHistory }: {
         </div>
         {uncertain && <button type="button" onClick={onCheckHistory} className={btnGhost}>Check recent history</button>}
         {!supported && <p className={meta}>Voice dictation isn’t available in this browser.</p>}
-        <p role="status" className="min-h-6 text-sm font-medium text-ok">{saved ? "Saved to this part’s history." : ""}</p>
+        <p role="status" className="min-h-6 text-sm text-muted">{saved ? "Saved to this part’s history." : ""}</p>
       </form>
     </section>
   );

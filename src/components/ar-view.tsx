@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ComponentCard as Card, NewNoteRequest, NewNoteResponse, Reading, Role, TagAssignment } from "@/lib/types";
 import type { ArucoDetector } from "js-aruco2";
 import { DICTIONARY, TAG_TO_COMPONENT } from "@/lib/markers";
+import { ArrowLeft } from "./icons";
 import {
   apply,
   center,
@@ -1039,17 +1040,17 @@ export default function ArView() {
 
       {/* Top bar */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 p-4 pt-[max(1rem,env(safe-area-inset-top))]">
-        <Link href="/" className="pointer-events-auto flex min-h-11 items-center rounded-full bg-black/50 px-4 font-medium backdrop-blur focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-          ← Machine Memory
+        <Link href="/" className="pointer-events-auto flex min-h-11 items-center rounded-ctl bg-black/50 px-4 font-medium backdrop-blur focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+          <ArrowLeft className="mr-2 h-4 w-4" />Machine Memory
         </Link>
-        <div role="group" aria-label="View as" className="pointer-events-auto grid grid-cols-2 gap-0.5 rounded-full bg-black/50 p-0.5 backdrop-blur">
+        <div role="group" aria-label="View as" className="pointer-events-auto grid grid-cols-2 gap-0.5 rounded-ctl bg-black/50 p-0.5 backdrop-blur">
           {(["operator", "technician"] as const).map((v) => (
             <button
               key={v}
               type="button"
               aria-pressed={role === v}
               onClick={() => selectRole(v)}
-              className={`min-h-10 cursor-pointer rounded-full px-3 text-sm font-medium capitalize focus-visible:outline-2 focus-visible:outline-white ${role === v ? "bg-[#ffcd11] text-black" : "text-white"}`}
+              className={`min-h-10 cursor-pointer rounded-[2px] px-3 text-sm font-medium capitalize focus-visible:outline-2 focus-visible:outline-white ${role === v ? "bg-[#ffcd11] text-black" : "text-white"}`}
             >
               {v}
             </button>

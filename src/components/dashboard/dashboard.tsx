@@ -14,7 +14,7 @@ import { btnGhost, btnSmall, field, h1, h2, meta, section } from "../ui";
 type StatusFilter = "all" | Level;
 const STATUS_ORDER: Level[] = ["alert", "watch", "ok", "none"];
 
-const chip = "min-h-10 cursor-pointer rounded-ctl border px-3 text-sm font-medium transition-colors duration-150";
+const chip = "min-h-10 shrink-0 cursor-pointer whitespace-nowrap rounded-ctl border px-3 text-sm font-medium transition-colors duration-150";
 const chipOff = "border-line hover:border-muted hover:bg-surface";
 const chipOn = "border-foreground bg-foreground text-background";
 const navLink = "inline-flex min-h-11 items-center text-sm font-medium text-muted hover:text-foreground";
@@ -117,7 +117,7 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
               </select>
             </label>
           </div>
-          <div role="group" aria-label="Filter parts by status" className="flex flex-wrap gap-2">
+          <div role="group" aria-label="Filter parts by status" className="-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
             <button type="button" aria-pressed={status === "all"} onClick={() => setStatus("all")} className={`${chip} ${status === "all" ? chipOn : chipOff}`}>All parts <span className="tabular-nums opacity-60">{scoped.length}</span></button>
             {STATUS_ORDER.map((l) => (
               <button key={l} type="button" aria-pressed={status === l} onClick={() => setStatus(status === l ? "all" : l)} className={`${chip} ${status === l ? chipOn : chipOff}`}>

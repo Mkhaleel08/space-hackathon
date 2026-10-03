@@ -45,12 +45,12 @@ export default function ComponentCard({ card, savedEventId }: { card: Card; save
           <p className={meta}>Simulated for this demo</p>
         </div>
         {card.readings.length === 0 ? <p className="mt-3 text-muted">No readings for this part. Status comes from notes only.</p> : (
-          <dl className="mt-4 grid grid-cols-3 gap-px border border-line bg-line">
+          <dl className="mt-4 grid grid-cols-3 gap-px border-y border-line bg-line">
             {card.readings.map((reading, index) => (
-              <div key={`${reading.label}-${index}`} className="min-w-0 bg-background p-3 sm:p-4">
-                <dt className="text-sm text-muted">{reading.label}</dt>
-                <dd className="mt-3 flex flex-col gap-1.5">
-                  <span className="font-mono text-sm font-medium tabular-nums sm:text-lg">{reading.value}</span>
+              <div key={`${reading.label}-${index}`} className={`flex min-w-0 flex-col bg-background py-3 pr-3 sm:py-4 ${index === 0 ? "" : "pl-3 sm:pl-4"}`}>
+                <dt className="text-sm leading-5 text-muted">{reading.label}</dt>
+                <dd className="mt-auto flex flex-col gap-1.5 pt-3">
+                  <span className="font-mono text-base font-medium tabular-nums sm:text-lg">{reading.value}</span>
                   <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${LEVEL_TONE[reading.status]}`}>
                     <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current" />
                     {shortStatus[reading.status]}
