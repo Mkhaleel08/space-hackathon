@@ -31,6 +31,7 @@ export interface MachineEvent {
   detail: string | null; // raw note text or structured detail
   author_role: Role;
   created_at: string; // ISO 8601
+  readings?: Reading[] | null; // snapshot when the note was saved; absent on seeded rows
 }
 
 /** Live reading shown on the card. Simulated for the demo. */

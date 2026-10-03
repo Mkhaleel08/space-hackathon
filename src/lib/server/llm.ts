@@ -6,6 +6,7 @@ import type {
   Reading,
   Role,
 } from "@/lib/types";
+import type { ReadingUpdate } from "./readings";
 
 // Thin LLM wrapper over fetch. Uses Anthropic if ANTHROPIC_API_KEY is set,
 // else OpenAI if OPENAI_API_KEY is set, else returns null so callers fall
@@ -203,6 +204,57 @@ export async function structureNote(
     ? (out.type as EventType)
     : "note";
   return { type, summary: clamp(String(out.summary), NOTE_SUMMARY_MAX) };
+}
+
+/**
+ * Reads measurements out of a note or a chat turn. Returns changes only for
+ * labels that already exist on the part, and only when the person states a
+ * value as measured now. Never throws; [] when unsure or when no model is set.
+ */
+export async function extractReadingUpdates(
+  text: string,
+  readings: Reading[],
+  component: Component,
+): Promise<ReadingUpdate[]> {
+  // Cheap gate: most chat turns are questions with no measurement in them.
+  const hasSignal =
+    /\d/.test(text) ||
+    /\b(dry|wet|full|low|empty|clear|clogged|tripped|seated|loose|flat|normal|fine)\b/i.test(text);
+  if (readings.length === 0 || !hasSignal) return [];
+  const system = [
+    "You update the live readings of one part of a machine or vehicle from what a worker just said or wrote.",
+    'Respond with JSON only: {"updates": [{"label": string, "value": string, "status": "ok" | "watch" | "alert"}]}.',
+    "Only use labels that appear in <readings>. Never invent a label.",
+    "Only record a value the worker states as measured or observed right now. A question, a hypothetical, a target, a spec limit, or a past value is not an update. When unsure, leave it out.",
+    "Write value in the same style and unit as the existing value for that label.",
+    "Choose status from the new value: ok when normal, watch when it is drifting toward a limit, alert when it is at or past one.",
+    'When nothing applies respond {"updates": []}.',
+    DATA_RULE,
+  ].join(" ");
+  const user = [
+    `Part: ${component.name}, located ${component.location}.`,
+    "<readings>",
+    describeReadings(readings),
+    "</readings>",
+    "<note>",
+    asData(text),
+    "</note>",
+  ].join("\n");
+  const out = parseJson<{ updates?: unknown }>(await complete(system, user));
+  if (!out || !Array.isArray(out.updates)) return [];
+  const labels = new Set(readings.map((r) => r.label));
+  const seen = new Set<string>();
+  const result: ReadingUpdate[] = [];
+  for (const u of out.updates as Array<Record<string, unknown>>) {
+    if (!u || typeof u !== "object") continue;
+    const label = typeof u.label === "string" ? u.label.trim() : "";
+    const value = typeof u.value === "string" ? u.value.trim().slice(0, 40) : "";
+    const status = u.status === "ok" || u.status === "watch" || u.status === "alert" ? u.status : null;
+    if (!label || !value || !status || !labels.has(label) || seen.has(label)) continue;
+    seen.add(label);
+    result.push({ label, value, status });
+  }
+  return result;
 }
 
 // How long the assistant may stream before the stream is cut and the client
