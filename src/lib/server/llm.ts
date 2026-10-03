@@ -29,6 +29,7 @@ async function complete(system: string, user: string): Promise<string | null> {
         body: JSON.stringify({
           model: process.env.LLM_MODEL || "claude-haiku-4-5-20251001",
           max_tokens: 400,
+          temperature: 0,
           system,
           messages: [{ role: "user", content: user }],
         }),
@@ -47,6 +48,7 @@ async function complete(system: string, user: string): Promise<string | null> {
         body: JSON.stringify({
           model: process.env.LLM_MODEL || "gpt-4o-mini",
           max_tokens: 400,
+          temperature: 0,
           response_format: { type: "json_object" },
           messages: [
             { role: "system", content: system },

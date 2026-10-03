@@ -90,3 +90,40 @@ export async function listComponents(): Promise<Component[]> {
   if (error) throw error;
   return (data ?? []) as Component[];
 }
+
+// --- Card text cache -------------------------------------------------------
+// Memory first (fast, per server instance), then the `card_cache` table so
+// the wording is stable across Vercel instances and cold starts. If the table
+// is missing or errors, the card still works; it just regenerates.
+
+type CardText = { summary: string; next_step: string };
+const cardTextMemory = new Map<string, CardText>();
+
+export async function getCachedCardText(key: string): Promise<CardText | null> {
+  const hit = cardTextMemory.get(key);
+  if (hit) return hit;
+  if (!hasSupabase()) return null;
+  const { data, error } = await supabase()
+    .from("card_cache")
+    .select("summary, next_step")
+    .eq("key", key)
+    .maybeSingle();
+  if (error) {
+    console.error("[card_cache] read:", error.message);
+    return null;
+  }
+  if (!data) return null;
+  cardTextMemory.set(key, data as CardText);
+  return data as CardText;
+}
+
+export async function saveCardText(key: string, text: CardText): Promise<void> {
+  cardTextMemory.set(key, text);
+  if (!hasSupabase()) return;
+  // ignoreDuplicates: if two requests race, the first writer wins and both
+  // later read the same row.
+  const { error } = await supabase()
+    .from("card_cache")
+    .upsert({ key, ...text }, { onConflict: "key", ignoreDuplicates: true });
+  if (error) console.error("[card_cache] write:", error.message);
+}

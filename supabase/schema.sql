@@ -32,3 +32,14 @@ create index if not exists events_component_created_idx
 
 -- Demo app, single team, server-side service role key. RLS stays off for the
 -- hackathon. Turn it on before anything real touches this.
+
+-- Cached LLM card wording. Key is "<component_id>:<role>:<hash of history>",
+-- so the same history always shows the same text and a new note produces a
+-- new row. No foreign keys on purpose: `npm run seed` must not clear it.
+-- To force fresh wording: truncate card_cache;
+create table if not exists card_cache (
+  key text primary key,
+  summary text not null,
+  next_step text not null,
+  created_at timestamptz not null default now()
+);
