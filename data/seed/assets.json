@@ -4,5 +4,11 @@
     "name": "Cat 320 Excavator #4471",
     "model": "320 GC",
     "hours": 6240
+  },
+  {
+    "id": "car-1",
+    "name": "Demo car (model TBD)",
+    "model": "TBD",
+    "hours": 2400
   }
 ]

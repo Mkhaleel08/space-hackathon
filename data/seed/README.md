@@ -6,7 +6,7 @@ as simulated in the pitch.
 
 Three files, shapes defined in `src/lib/types.ts`:
 
-- `assets.json` — one row
+- `assets.json` — two rows: the Cat 320 for the pitch, the demo car for the live test
 - `components.json` — 3 to 4 rows. `id` is what goes in the QR code.
 - `events.json` — 15 to 20 rows, no `id` field (the DB assigns it). Spread
   `created_at` over the last 6 to 18 months. Make the scenario component (the
