@@ -553,6 +553,35 @@ export default function ArView() {
     chatRef.current = null;
     setChatId(null);
   }, []);
+  // The assistant recorded a measurement: show the new values on the card at
+  // once for both roles, then re-read the card so the wording catches up.
+  const patchReadings = useCallback(
+    (id: string, readings: Reading[]) => {
+      const patch = (c: Card): Card => ({ ...c, readings });
+      for (const r of ["operator", "technician"] as const) {
+        const cached = cacheRef.current.get(`${id}:${r}`);
+        if (cached) cacheRef.current.set(`${id}:${r}`, patch(cached));
+      }
+      setCards((prev) => {
+        const next = { ...prev };
+        for (const r of ["operator", "technician"] as const) {
+          const s = prev[`${id}:${r}`];
+          if (s?.kind === "ready") next[`${id}:${r}`] = { kind: "ready", card: patch(s.card) };
+        }
+        return next;
+      });
+      const key = `${id}:${role}`;
+      void fetch(`/api/components/${encodeURIComponent(id)}/card?role=${role}`, { cache: "no-store" })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const card: Card = await res.json();
+          cacheRef.current.set(key, card);
+          setCards((prev) => ({ ...prev, [key]: { kind: "ready", card } }));
+        })
+        .catch(() => {});
+    },
+    [role],
+  );
   const cameraControl = useMemo<CameraControl>(
     () => ({ pause: pauseCamera, resume: resumeCamera, isOn: () => Boolean(streamRef.current), micNeedsCamera: micNeedsCameraRef }),
     [pauseCamera, resumeCamera],
@@ -1229,6 +1258,7 @@ export default function ArView() {
           role={role}
           messages={threads[chatId] ?? []}
           onMessages={(next) => setThreads((prev) => ({ ...prev, [chatId]: next }))}
+          onReadings={(readings) => patchReadings(chatId, readings)}
           landscape={landscape}
           speechOk={speechOk}
           camera={cameraControl}
