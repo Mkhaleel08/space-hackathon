@@ -47,7 +47,9 @@ export async function buildCard(
     next_step: text.next_step,
     readings,
     recent_events: history.slice(0, RECENT_EVENTS),
-    checklist: text.checklist.map((t, i) => ({ id: String(i), text: t })),
+    // The id is the text itself: when a reading change regenerates the list,
+    // a reworded step loses its tick instead of inheriting another step's.
+    checklist: text.checklist.map((t) => ({ id: t, text: t })),
   };
 }
 

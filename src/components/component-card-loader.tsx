@@ -29,7 +29,7 @@ export default function ComponentCardLoader({ id, role, roleControl }: { id: str
   const [filingError, setFilingError] = useState("");
 
   async function finishChecklist(card: Card) {
-    if (filing || checked.size === 0) return;
+    if (filing || !card.checklist.some((i) => checked.has(i.id))) return;
     setFiling(true); setFilingError("");
     try {
       const body: NewNoteRequest = { text: checklistNoteText(card.checklist, checked), author_role: role };

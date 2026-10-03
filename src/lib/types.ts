@@ -55,7 +55,7 @@ export interface ComponentCard {
 
 /** One step of the card's inspection checklist. Checked state lives on the phone. */
 export interface ChecklistItem {
-  id: string; // index as a string, stable within one card
+  id: string; // the step text; a regenerated list only keeps ticks on unchanged steps
   text: string; // imperative, under 80 characters
 }
 

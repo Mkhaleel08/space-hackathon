@@ -33,7 +33,7 @@ export default function Checklist({
   const finish = dark
     ? "bg-[#ffcd11] text-black hover:bg-[#f0bf0a]"
     : "bg-accent text-accent-ink hover:bg-[#f0bf0a]";
-  const done = checked.size;
+  const done = items.filter((i) => checked.has(i.id)).length;
   return (
     <div className={dark ? "mt-3" : "mt-5"}>
       <div className={`flex items-baseline justify-between font-mono text-[10px] font-semibold uppercase tracking-[0.14em] ${muted}`}>

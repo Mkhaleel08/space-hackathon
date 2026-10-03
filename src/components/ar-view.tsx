@@ -562,19 +562,18 @@ export default function ArView() {
   const patchReadings = useCallback(
     (id: string, readings: Reading[]) => {
       const patch = (c: Card): Card => ({ ...c, readings });
-      for (const r of ["operator", "technician"] as const) {
-        const cached = cacheRef.current.get(`${id}:${r}`);
-        if (cached) cacheRef.current.set(`${id}:${r}`, patch(cached));
-      }
+      const key = `${id}:${role}`;
+      const otherKey = `${id}:${role === "operator" ? "technician" : "operator"}`;
+      const cached = cacheRef.current.get(key);
+      if (cached) cacheRef.current.set(key, patch(cached));
+      cacheRef.current.delete(otherKey);
       setCards((prev) => {
         const next = { ...prev };
-        for (const r of ["operator", "technician"] as const) {
-          const s = prev[`${id}:${r}`];
-          if (s?.kind === "ready") next[`${id}:${r}`] = { kind: "ready", card: patch(s.card) };
-        }
+        delete next[otherKey]; // the other role re-reads on its next switch
+        const s = prev[key];
+        if (s?.kind === "ready") next[key] = { kind: "ready", card: patch(s.card) };
         return next;
       });
-      const key = `${id}:${role}`;
       void fetch(`/api/components/${encodeURIComponent(id)}/card?role=${role}`, { cache: "no-store" })
         .then(async (res) => {
           if (!res.ok) return;
@@ -740,7 +739,10 @@ export default function ArView() {
     (id: string) => {
       const state = cards[`${id}:${role}`];
       const checked = checklists[id];
-      if (!state || state.kind !== "ready" || !checked || checked.size === 0) return;
+      if (!state || state.kind !== "ready" || !checked || !state.card.checklist.some((i) => checked.has(i.id))) return;
+      // A spoken note still being reviewed keeps the panel; finish after it is saved.
+      const v = voiceRef.current;
+      if (v && v.id === id && (v.phase === "listening" || v.phase === "review" || v.phase === "saving")) return;
       const text = checklistNoteText(state.card.checklist, checked);
       setChecklists((prev) => ({ ...prev, [id]: new Set() }));
       setVoice({ id, phase: "review", text, interim: "", message: "" });
