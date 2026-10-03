@@ -161,98 +161,138 @@
   },
   {
     "component_id": "car-brakes-lf",
+    "type": "fault",
+    "summary": "Brake pad wear warning on the dash at 17,900 miles, earlier than expected",
+    "detail": "Yellow brake pad symbol came on during the commute. No noise, pedal feels normal. Dealer said front pads usually go 25 to 30k on this car.",
+    "author_role": "operator",
+    "created_at": "2025-03-04T17:40:00Z"
+  },
+  {
+    "component_id": "car-brakes-lf",
+    "type": "inspection",
+    "summary": "Front pads measured: left inner 2 mm, left outer 6 mm, right side even at 5 mm",
+    "detail": "Only the left front is wearing unevenly. Pulled the caliper. Both guide pins were dry and the lower one was stiff in its bore, so the inner pad was dragging. Rotors within spec, 30.2 mm against a 28.4 minimum.",
+    "author_role": "technician",
+    "created_at": "2025-03-08T15:10:00Z"
+  },
+  {
+    "component_id": "car-brakes-lf",
     "type": "repair",
-    "summary": "Front pads and rotors replaced, brake fluid flushed",
-    "detail": "Inner pads were down to 2 mm. Rotors had a lip, replaced rather than turned. Fluid was dark brown, full flush with DOT 3. Bled all four corners.",
+    "summary": "Front pads and wear sensor replaced, left caliper guide pins cleaned and greased",
+    "detail": "New pads and a new wear sensor on the left front. Cleaned both guide pins, new boots, high-temp brake grease. Rotors kept. Bedded the pads over ten stops from 60. Service reminder reset.",
     "author_role": "technician",
-    "created_at": "2025-04-12T15:30:00Z"
+    "created_at": "2025-03-08T18:30:00Z"
   },
   {
     "component_id": "car-brakes-lf",
     "type": "inspection",
-    "summary": "Walkaround before a road trip, pedal firm, fluid at MAX",
-    "detail": null,
-    "author_role": "operator",
-    "created_at": "2025-07-03T07:10:00Z"
+    "summary": "Tire rotation check, front pads even at 8 mm both sides",
+    "detail": "Measured through the spokes with a gauge. Left inner and outer within 0.5 mm of each other. Pins are doing their job.",
+    "author_role": "technician",
+    "created_at": "2025-10-11T14:20:00Z"
+  },
+  {
+    "component_id": "car-brakes-lf",
+    "type": "inspection",
+    "summary": "Annual inspection, pads at 6 mm, rotors clean, fluid tested at 2 percent moisture",
+    "detail": "Brake fluid due for a flush next spring under the two-year schedule. No pulsation on a hard stop from 70.",
+    "author_role": "technician",
+    "created_at": "2026-04-18T16:00:00Z"
   },
   {
     "component_id": "car-brakes-lf",
     "type": "note",
-    "summary": "Brake fluid reservoir found just under MIN, topped up, no drips seen under the car",
-    "detail": "Noticed the brake warning light flicker on a hard stop. Reservoir was below MIN. Added about 100 ml. Looked under the car and at all four wheels, nothing wet.",
+    "summary": "Faint squeal from the left front on the first cold stop each morning, gone after that",
+    "detail": "Started about a week ago. Only the first stop of the day and only turning right, which loads the left front. Pedal feels fine, no warning light.",
     "author_role": "operator",
-    "created_at": "2026-02-18T18:40:00Z"
+    "created_at": "2026-09-27T13:05:00Z"
   },
   {
-    "component_id": "car-brakes-lf",
+    "component_id": "car-tire-lf",
     "type": "inspection",
-    "summary": "Pressure test held, no external leak found, fluid loss unexplained",
-    "detail": "Held 1,000 psi for 5 minutes with no drop. Lines, calipers, and hoses dry. Pads at 7 mm front, 6 mm rear so some level drop is normal wear, but 100 ml is more than wear explains. Suspect master cylinder seal weeping internally or into the booster. Marked the reservoir level with tape to watch.",
+    "summary": "Tire rotation and tread check, inner shoulder on the front tires wearing faster",
+    "detail": "Front inner edge 4/32, outer edge 6/32 on both fronts. Normal for the factory camber on this car but worth rotating on time. Pressures set to 35 psi cold all around.",
     "author_role": "technician",
-    "created_at": "2026-03-02T16:00:00Z"
-  },
-  {
-    "component_id": "car-brakes-lf",
-    "type": "note",
-    "summary": "Fluid dropped below the tape mark again, about 5 mm in six weeks",
-    "detail": "Pedal still feels normal. No puddle. Not touching it until someone looks at the master cylinder.",
-    "author_role": "operator",
-    "created_at": "2026-04-15T08:05:00Z"
-  },
-  {
-    "component_id": "car-brakes-lf",
-    "type": "inspection",
-    "summary": "Pulled the master cylinder off the booster, found fluid inside the booster, master cylinder replaced",
-    "detail": "Rear seal on the master cylinder was leaking into the vacuum booster. About 60 ml pooled in the booster. Replaced master cylinder, bench bled, flushed system. Booster is still working but has been wetted; recommend checking it at the next service.",
-    "author_role": "technician",
-    "created_at": "2026-04-20T17:20:00Z"
-  },
-  {
-    "component_id": "car-brakes-lf",
-    "type": "inspection",
-    "summary": "Fluid level unchanged since the master cylinder swap, pedal firm",
-    "detail": "Level exactly on the tape mark after 5 months. Fix held.",
-    "author_role": "operator",
-    "created_at": "2026-09-26T07:30:00Z"
-  },
-  {
-    "component_id": "car-battery",
-    "type": "note",
-    "summary": "Slow crank on cold mornings, fine once started",
-    "detail": "Below about 35 \u00b0F it turns over twice before catching. Normal the rest of the day.",
-    "author_role": "operator",
-    "created_at": "2025-12-09T07:15:00Z"
-  },
-  {
-    "component_id": "car-battery",
-    "type": "inspection",
-    "summary": "Battery load tested, 12.3 V resting, 410 of 600 rated CCA, terminals corroded",
-    "detail": "Cleaned both terminals and put dielectric grease on. Battery date code is four years old. Passed the load test but with little margin. Expect to replace before next winter.",
-    "author_role": "technician",
-    "created_at": "2025-12-13T11:00:00Z"
-  },
-  {
-    "component_id": "car-air-filter",
-    "type": "repair",
-    "summary": "Engine air filter replaced at oil change",
-    "detail": "Old filter gray with a few leaves in the airbox. Cabin filter also replaced.",
-    "author_role": "technician",
-    "created_at": "2026-01-24T10:20:00Z"
+    "created_at": "2025-10-11T14:00:00Z"
   },
   {
     "component_id": "car-tire-lf",
     "type": "fault",
-    "summary": "Left front tire losing about 3 psi a week",
-    "detail": "Topped it up three Mondays in a row. No visible nail. Other three tires hold pressure.",
+    "summary": "Low tire pressure warning, left front down to 27 psi",
+    "detail": "Warning came on overnight in the driveway. Other three tires at 34 to 35. Found a drywall screw in the center of the tread.",
     "author_role": "operator",
-    "created_at": "2026-06-02T08:00:00Z"
+    "created_at": "2026-05-19T12:30:00Z"
   },
   {
     "component_id": "car-tire-lf",
     "type": "repair",
-    "summary": "Found a screw in the left front tread, patched from the inside, rebalanced",
-    "detail": "Screw was in the center tread, repairable. Plug-patch applied, wheel rebalanced. Tread at 6/32 on this corner, matches the right side.",
+    "summary": "Screw removed, tire patched from the inside, wheel rebalanced",
+    "detail": "Puncture was in the center tread, repairable. Plug-patch applied from the inside. Rebalanced. Tread 5/32 inner, 6/32 outer. TPMS relearned.",
     "author_role": "technician",
-    "created_at": "2026-06-06T14:30:00Z"
+    "created_at": "2026-05-20T15:45:00Z"
+  },
+  {
+    "component_id": "car-tire-lf",
+    "type": "inspection",
+    "summary": "Pressure holding at 35 psi four months after the patch",
+    "detail": null,
+    "author_role": "operator",
+    "created_at": "2026-09-20T13:00:00Z"
+  },
+  {
+    "component_id": "car-engine-oil",
+    "type": "repair",
+    "summary": "Oil and filter changed at 32,100 miles, 0W-30 full synthetic",
+    "detail": "Drained hot, 6.9 quarts in. New filter and drain plug washer. Service reminder reset. No metal on the plug.",
+    "author_role": "technician",
+    "created_at": "2025-12-06T15:20:00Z"
+  },
+  {
+    "component_id": "car-engine-oil",
+    "type": "note",
+    "summary": "Low oil level message on the dash, added one quart",
+    "detail": "The car has no dipstick, so I checked the level on the screen after idling. It showed one bar under MIN. Added a quart of the same 0W-30 and the level read in the middle of the range.",
+    "author_role": "operator",
+    "created_at": "2026-04-02T12:50:00Z"
+  },
+  {
+    "component_id": "car-engine-oil",
+    "type": "inspection",
+    "summary": "Oil consumption is one quart per 4,000 miles, within what the factory calls normal for this engine",
+    "detail": "Checked under the car and around the oil filter housing and valve cover, all dry. No blue smoke on a cold start. Keep a quart of 0W-30 in the trunk and check the level on the screen every other fuel stop.",
+    "author_role": "technician",
+    "created_at": "2026-04-18T16:30:00Z"
+  },
+  {
+    "component_id": "car-air-filter",
+    "type": "repair",
+    "summary": "Engine air filter replaced at 30,000 miles",
+    "detail": "Old filter was gray with leaves and a few seed pods in the airbox. Vacuumed the box before fitting the new filter.",
+    "author_role": "technician",
+    "created_at": "2025-10-11T14:40:00Z"
+  },
+  {
+    "component_id": "car-air-filter",
+    "type": "inspection",
+    "summary": "Dust found on the clean side of the airbox, rear clip had not been seated",
+    "detail": "Opened the box during the annual inspection and saw a thin line of dust past the filter seal. The rear clip on the lid was sitting on top of its catch instead of under it. Cleaned the box, seated the filter, and pressed all clips until they clicked. Filter itself still fine.",
+    "author_role": "technician",
+    "created_at": "2026-04-18T15:40:00Z"
+  },
+  {
+    "component_id": "car-battery",
+    "type": "note",
+    "summary": "Slow crank on cold mornings, starts on the second try below freezing",
+    "detail": "Fine once it is running and fine the rest of the day. Noticed it twice this week.",
+    "author_role": "operator",
+    "created_at": "2026-01-21T13:15:00Z"
+  },
+  {
+    "component_id": "car-battery",
+    "type": "inspection",
+    "summary": "Battery tested at 12.4 volts resting, 520 of 800 rated cold cranking amps, five years old",
+    "detail": "AGM battery in the trunk under the floor panel. Passed the load test with little margin. Terminals clean. On this car a replacement has to be registered to the car with a scan tool or it will be overcharged. Plan to replace before next winter.",
+    "author_role": "technician",
+    "created_at": "2026-01-24T16:10:00Z"
   }
 ]

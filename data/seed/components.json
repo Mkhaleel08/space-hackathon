@@ -25,26 +25,32 @@
   },
   {
     "id": "car-brakes-lf",
-    "asset_id": "car-1",
-    "name": "Front brakes and brake fluid",
-    "location": "Left front wheel; reservoir at the back of the engine bay, driver side"
-  },
-  {
-    "id": "car-battery",
-    "asset_id": "car-1",
-    "name": "12V battery",
-    "location": "Engine bay, front corner"
-  },
-  {
-    "id": "car-air-filter",
-    "asset_id": "car-1",
-    "name": "Engine air filter",
-    "location": "Engine bay, black airbox with clips"
+    "asset_id": "bmw-m3",
+    "name": "Left front brake",
+    "location": "Driver side front wheel, caliper and pads visible through the spokes"
   },
   {
     "id": "car-tire-lf",
-    "asset_id": "car-1",
+    "asset_id": "bmw-m3",
     "name": "Left front tire and wheel",
     "location": "Driver side, front"
+  },
+  {
+    "id": "car-engine-oil",
+    "asset_id": "bmw-m3",
+    "name": "Engine oil",
+    "location": "Engine bay, oil filler cap on the engine cover"
+  },
+  {
+    "id": "car-air-filter",
+    "asset_id": "bmw-m3",
+    "name": "Engine air filter",
+    "location": "Engine bay, airbox lid on the driver side"
+  },
+  {
+    "id": "car-battery",
+    "asset_id": "bmw-m3",
+    "name": "12V battery",
+    "location": "Trunk, right side under the floor panel; jump terminal under the hood"
   }
 ]

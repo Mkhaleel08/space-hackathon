@@ -55,3 +55,12 @@ because the app has no accounts; this is the honest gap, not a login system.
 (3) AprilTag manager: add a part, get the next free 36h11 id, print the label;
 the tag map moves to a `tags` table with `src/lib/markers.ts` as fallback.
 Still no AR beyond the pinned live view, no markerless recognition.
+
+## Addendum, Oct 3 10:40 AM (Mehran)
+
+The live demo car is a **BMW M3**, seeded as asset `bmw-m3` with five parts a
+judge can see from outside or with the hood open: left front brake (the story:
+uneven inner-pad wear traced to dry caliper guide pins in 2025, and the cold
+squeal is back), left front tire, engine oil, engine air filter, 12V battery.
+AprilTags 10-14, page 1 of `/tags/print.html`. The Cat 320 stays in the data
+for the pitch and video but is not the live demo.

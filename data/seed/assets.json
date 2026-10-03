@@ -6,9 +6,9 @@
     "hours": 6240
   },
   {
-    "id": "car-1",
-    "name": "Demo car (model TBD)",
-    "model": "TBD",
-    "hours": 2400
+    "id": "bmw-m3",
+    "name": "BMW M3",
+    "model": "M3, 38,400 mi",
+    "hours": 1180
   }
 ]
