@@ -16,7 +16,7 @@ export async function getDashboard(): Promise<DashboardData> {
     listEvents(),
     tagsOrFallback(),
   ]);
-  const readings = Object.fromEntries(components.map((c) => [c.id, readingsFor(c.id)]));
+  const readings = Object.fromEntries(await Promise.all(components.map(async (c) => [c.id, await readingsFor(c.id)] as const)));
   const cards = await Promise.allSettled(components.map((c) => buildCard(c.id, "operator")));
   const next_steps: Record<string, string> = {};
   cards.forEach((result, i) => {

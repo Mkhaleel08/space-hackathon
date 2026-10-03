@@ -59,7 +59,8 @@ export async function POST(
       return Response.json({ error: `Unknown component: ${id}` }, { status: 404 });
     }
 
-    const stream = await streamChat(component, asset, history, readingsFor(id), author_role, messages);
+    const readings = await readingsFor(id);
+    const stream = await streamChat(component, asset, history, readings, author_role, messages);
     if (!stream) {
       return Response.json({ error: "The assistant couldn’t answer right now." }, { status: 502 });
     }

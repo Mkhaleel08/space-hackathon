@@ -55,6 +55,26 @@ insert into tags (tag_id, component_id) values
   (10, 'car-brakes-lf'), (11, 'car-battery'), (12, 'car-air-filter'), (13, 'car-tire-lf')
 on conflict do nothing;
 
+-- Live readings per part. Seeded from src/lib/server/readings.ts by
+-- `npm run seed`; changed by the part assistant and by notes that state a
+-- measurement. The app falls back to the static map when this table is
+-- missing or has no rows for a part.
+create table if not exists readings (
+  component_id text not null references components(id) on delete cascade,
+  position integer not null,
+  label text not null,
+  value text not null,
+  status text not null check (status in ('ok', 'watch', 'alert')),
+  updated_at timestamptz not null default now(),
+  primary key (component_id, label)
+);
+
+-- Readings as they stood when a note was saved. Null on seeded rows.
+alter table events add column if not exists readings jsonb;
+
+-- Inspection checklist written with the card. Null on rows cached before Oct 3.
+alter table card_cache add column if not exists checklist jsonb;
+
 -- Row level security. The app only talks to the database from the server with
 -- the service role key, which bypasses RLS. Enabling RLS with no policies means
 -- the public anon key can read and write nothing, so a leaked project URL is
@@ -64,3 +84,4 @@ alter table components enable row level security;
 alter table events enable row level security;
 alter table card_cache enable row level security;
 alter table tags enable row level security;
+alter table readings enable row level security;
