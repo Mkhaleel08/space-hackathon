@@ -4,12 +4,12 @@ export default function Home() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
       <h1 className="text-3xl font-semibold">Machine Memory</h1>
-      <p className="max-w-sm text-balance text-neutral-600">
+      <p className="max-w-sm text-balance text-neutral-600 dark:text-neutral-300">
         Point your camera at a component. See what the machine remembers.
       </p>
       <Link
         href="/scan"
-        className="rounded-full bg-black px-8 py-4 text-lg font-medium text-white"
+        className="flex min-h-14 items-center justify-center rounded-full border border-neutral-300 px-8 py-4 text-lg font-medium hover:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-4 dark:border-neutral-700 dark:hover:bg-neutral-800"
       >
         Scan a part
       </Link>

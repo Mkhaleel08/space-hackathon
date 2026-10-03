@@ -187,7 +187,7 @@ export default function NoteForm({ id, role, onSaved, onCheckHistory }: {
         {error && <p id="note-error" role="alert" className="text-sm text-red-700 dark:text-red-300">{error}</p>}
         {uncertain && <button type="button" onClick={onCheckHistory} className={`${buttonStyle} border border-neutral-300 hover:bg-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-800`}>Check recent history</button>}
         <button type="submit" disabled={saving || listening} aria-busy={saving} className={`${buttonStyle} bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-neutral-200`}>{saving ? "Saving note…" : "Save note"}</button>
-        <p role="status" className="min-h-6 text-sm text-green-800 dark:text-green-300">{saved ? "Note saved to this part’s history." : ""}</p>
+        <p role="status" className="min-h-6 text-base font-medium text-green-800 dark:text-green-300">{saved ? "Note saved to this part’s history." : ""}</p>
       </form>
     </section>
   );
