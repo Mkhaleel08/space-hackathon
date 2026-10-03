@@ -11,7 +11,8 @@ component's event history, worded for the role:
 - **operator**: plain language, what to watch for, when to call someone
 - **technician**: specifics, part names, last repair, what to check first
 
-`readings` are simulated and can be hardcoded per component for the demo.
+`readings` come from the `readings` table (seeded from `data/seed/readings.json`,
+used directly when the table is missing) and change through notes and the chat.
 
 Errors: `404` if the component id is unknown (bad QR scan).
 
@@ -23,8 +24,13 @@ The LLM turns the raw spoken/typed text into a structured `MachineEvent`
 (picks `type`, writes a one-line `summary`, keeps the raw text in `detail`),
 inserts it, and returns `NewNoteResponse`.
 
+The note text is also read for measurements against the part's current
+readings: a stated value ("inner pad is at 3.5 mm") updates that reading.
+The returned `event.readings` is the full list as it stood after the save,
+and the card shows it under the event.
+
 This is the write-back loop. The next `GET .../card` for this component must
-reflect the new event. That is the demo moment.
+reflect the new event and the new readings. That is the demo moment.
 
 ## `POST /api/components/[id]/chat`
 

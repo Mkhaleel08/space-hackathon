@@ -36,7 +36,7 @@ export async function buildCard(
   ]);
   if (!asset) return null;
 
-  const readings = readingsFor(componentId);
+  const readings = await readingsFor(componentId);
   const text = await cardText(component, asset, history, readings, role);
 
   return {

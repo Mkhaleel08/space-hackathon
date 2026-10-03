@@ -162,6 +162,12 @@ export default function ComponentCard({
                           </p>
                         </details>
                       )}
+                    {event.readings && event.readings.length > 0 && (
+                      <p className="mt-2 text-xs text-muted">
+                        <span className="font-semibold">Readings when saved:</span>{" "}
+                        {event.readings.map((r) => `${r.label} ${r.value}`).join(" · ")}
+                      </p>
+                    )}
                   </li>
                 );
               })}

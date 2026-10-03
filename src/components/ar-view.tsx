@@ -1498,6 +1498,9 @@ const Panel = memo(function Panel({
                 {e.type} · {Number.isNaN(Date.parse(e.created_at)) ? "" : eventDate.format(new Date(e.created_at))}
               </span>
               <p className="text-white/90">{e.summary}</p>
+              {e.readings && e.readings.length > 0 && (
+                <p className="mt-0.5 text-[11px] text-white/55">{e.readings.map((r) => `${r.label} ${r.value}`).join(" · ")}</p>
+              )}
             </li>
           ))}
         </ol>

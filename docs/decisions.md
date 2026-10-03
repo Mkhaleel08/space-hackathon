@@ -74,3 +74,15 @@ fixes, what to change, and concerns with the part. Voice in, streamed text
 out, read aloud when the question was spoken. It is grounded in the same
 history and readings as the card through `POST /api/components/[id]/chat`.
 Nothing is stored. Still no AR beyond the pinned live view.
+
+## Addendum, Oct 3 1:30 PM (Mehran)
+
+Readings become **live**: they move from a hardcoded map to a `readings`
+table (seeded from `data/seed/readings.json`), and the part assistant or a
+saved note can change a value by stating it ("inner pad is at 3.5 mm").
+Every note keeps a snapshot of the readings when it was saved. The
+**inspection checklist** from the cut list comes back as an LLM-written
+per-part list on the card, checked off on the phone and filed as one
+inspection note. Three PRs; checklist last and dropped if it slips past
+4:15 PM. Reseed before the demo restores the readings. Still no AR beyond the
+pinned live view.
