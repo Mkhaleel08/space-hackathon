@@ -14,8 +14,9 @@ Full plan: [`docs/game-plan.md`](docs/game-plan.md). Locked decisions:
 
 ## Stack
 
-Next.js 16 (App Router) on Vercel · Supabase Postgres · `html5-qrcode` · LLM API
-(provider decided at lock) · browser speech recognition with typed fallback.
+Next.js 16 (App Router) on Vercel · Supabase Postgres · AprilTag markers via
+`js-aruco2` (QR via `html5-qrcode`/`jsqr` as fallback) · Anthropic API · browser
+speech recognition with typed fallback.
 
 ## Who owns what
 
@@ -61,6 +62,11 @@ Database: the schema is already applied and seeded on the shared Supabase
 project. Get the three Supabase values for `.env.local` from Mehran. Need to
 reset it? `npm run seed` wipes and reloads the demo data (needs the service
 role key). **Run `npm run seed` before every demo.**
+
+## Labels
+
+Print `/tags/print.html` (AprilTags, matte paper) and tape one on each part.
+`/qr/print.html` has the older QR labels; both work in the live view at `/ar`.
 
 ## Milestones
 

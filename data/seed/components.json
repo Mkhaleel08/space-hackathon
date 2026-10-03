@@ -22,5 +22,29 @@
     "asset_id": "cat-320-4471",
     "name": "Left track and final drive",
     "location": "Undercarriage, left"
+  },
+  {
+    "id": "car-brakes-lf",
+    "asset_id": "car-1",
+    "name": "Front brakes and brake fluid",
+    "location": "Left front wheel; reservoir at the back of the engine bay, driver side"
+  },
+  {
+    "id": "car-battery",
+    "asset_id": "car-1",
+    "name": "12V battery",
+    "location": "Engine bay, front corner"
+  },
+  {
+    "id": "car-air-filter",
+    "asset_id": "car-1",
+    "name": "Engine air filter",
+    "location": "Engine bay, black airbox with clips"
+  },
+  {
+    "id": "car-tire-lf",
+    "asset_id": "car-1",
+    "name": "Left front tire and wheel",
+    "location": "Driver side, front"
   }
 ]
