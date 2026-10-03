@@ -101,17 +101,6 @@ export default function Home() {
             </div>
             <ArrowRight className="h-5 w-5" />
           </Link>
-          <Link href="/scan" className={s.routeCard}>
-            <span className={s.routeIcon}>
-              <Scan className="h-6 w-6" />
-            </span>
-            <div>
-              <span className={s.eyebrow}>At the machine</span>
-              <h2>Go straight to a part</h2>
-              <p>Scan a QR label or choose a part to open its full history.</p>
-            </div>
-            <ArrowRight className="h-5 w-5" />
-          </Link>
         </section>
         <footer className={s.footer}>
           <span>Machine Memory</span>

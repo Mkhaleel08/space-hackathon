@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
-    "html5-qrcode": "^2.3.8",
     "js-aruco2": "^2.0.0",
     "jsqr": "^1.4.0",
     "next": "16.3.8",

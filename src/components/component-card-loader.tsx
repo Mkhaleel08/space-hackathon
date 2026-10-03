@@ -120,7 +120,7 @@ export default function ComponentCardLoader({ id, role, roleControl }: { id: str
     <section className="min-h-48 py-6">
       <h1 className={h1}>Unknown part</h1>
       <p className="mt-3 max-w-[50ch] text-muted">This label doesn’t match a part in the machine’s history.</p>
-      <Link href="/scan" className={`${btnPrimary} mt-6`}>Scan again</Link>
+      <Link href="/ar" className={`${btnPrimary} mt-6`}>Open live view</Link>
     </section>
   );
   return (

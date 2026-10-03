@@ -32,7 +32,8 @@ Live view (`/ar`) added on top of the QR flow: the camera stays open and the
 part's card pins itself to the detected code with a leader line. It is still
 QR-anchored. No markerless recognition, no WebXR. The AR row above stands as
 written; this is the "pinned cards" half of it, done over live video instead
-of on a separate page. Falls back to the plain scanner at `/scan`.
+of on a separate page. (The plain scanner at `/scan` was removed Oct 3 3 PM;
+see the addendum below.)
 
 ## Addendum, Oct 3 1:40 AM (Mehran, agreed with the team)
 
@@ -74,3 +75,10 @@ fixes, what to change, and concerns with the part. Voice in, streamed text
 out, read aloud when the question was spoken. It is grounded in the same
 history and readings as the card through `POST /api/components/[id]/chat`.
 Nothing is stored. Still no AR beyond the pinned live view.
+
+## Addendum, Oct 3 3:00 PM (Mehran)
+
+The separate QR scanner page (`/scan`) and its "Scan a part" nav entry are
+gone. Live view is the only camera path. Printed QR labels still work: the
+phone's native camera opens `/c/[id]`, which redirects to the part page.
+Fallback links that pointed at `/scan` now go to the dashboard or live view.

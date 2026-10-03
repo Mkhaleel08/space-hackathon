@@ -1131,8 +1131,8 @@ export default function ArView() {
           >
             {view === "opening" ? "Opening camera…" : view === "error" ? "Try again" : "Start live view"}
           </button>
-          <Link href="/scan" className="flex min-h-11 items-center text-sm text-neutral-300 underline underline-offset-4">
-            Use the simple scanner instead
+          <Link href="/dashboard" className="flex min-h-11 items-center text-sm text-neutral-300 underline underline-offset-4">
+            Browse parts instead
           </Link>
         </div>
       )}
