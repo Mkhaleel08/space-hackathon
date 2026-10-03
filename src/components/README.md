@@ -1,6 +1,6 @@
 # UI components (owner: frontend)
 
-Camera, QR scanning (`html5-qrcode`), the component card, role toggle, note
+The live camera view (AprilTags), the component card, role toggle, note
 input, checklist. Pages go in `src/app/`, hooks in `src/hooks/`.
 `dashboard/` holds the operator dashboard (overview, activity feed with
 delete, AprilTag manager). `/labels` prints tags.

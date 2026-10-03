@@ -17,7 +17,7 @@ export interface Asset {
 }
 
 export interface Component {
-  id: string; // also the QR code payload
+  id: string; // what an AprilTag number maps to (src/lib/markers.ts)
   asset_id: string;
   name: string; // e.g. "Hydraulic pump"
   location: string; // where on the machine, for the card header

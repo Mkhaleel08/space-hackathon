@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { Camera, Grid, Scan } from "./icons";
+import { Camera, Grid } from "./icons";
 import s from "./workspace.module.css";
 
 export default function SiteHeader({
   active,
 }: {
-  active?: "home" | "dashboard" | "scan";
+  active?: "home" | "dashboard";
 }) {
   return (
     <header className={s.siteHeader}>
@@ -30,13 +30,6 @@ export default function SiteHeader({
           >
             <Grid />
             <span>Dashboard</span>
-          </Link>
-          <Link
-            href="/scan"
-            aria-current={active === "scan" ? "page" : undefined}
-          >
-            <Scan />
-            <span>Scan a part</span>
           </Link>
           <Link href="/ar" className={s.liveLink}>
             <Camera />
