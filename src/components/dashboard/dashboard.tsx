@@ -10,9 +10,16 @@ import { LEVEL_LABEL, type Level, worstOf } from "./status";
 import TagManager from "./tag-manager";
 import { Close } from "../icons";
 import Reveal from "../reveal";
-import { btnGhost, btnSmall, field, h1, h2, meta, section } from "../ui";
+import { btnGhost, btnSmall, field, h1, h2, meta } from "../ui";
 
 type StatusFilter = "all" | Level;
+type Tab = "overview" | "activity" | "tags";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "activity", label: "Activity" },
+  { id: "tags", label: "AprilTags" },
+];
+const OVERVIEW_EVENTS = 5;
 const STATUS_ORDER: Level[] = ["alert", "watch", "ok", "none"];
 
 const chip = "min-h-10 shrink-0 cursor-pointer whitespace-nowrap rounded-ctl border px-3 text-sm font-medium transition-colors duration-150";
@@ -28,6 +35,7 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState(false);
   const [notice, setNotice] = useState("");
+  const [tab, setTab] = useState<Tab>("overview");
   const inflight = useRef<AbortController | null>(null);
   const now = useNow();
 
@@ -118,33 +126,68 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
               </select>
             </label>
           </div>
-          <div role="group" aria-label="Filter parts by status" className="-mx-5 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
-            <button type="button" aria-pressed={status === "all"} onClick={() => setStatus("all")} className={`${chip} ${status === "all" ? chipOn : chipOff}`}>All parts <span className="tabular-nums opacity-60">{scoped.length}</span></button>
-            {STATUS_ORDER.map((l) => (
-              <button key={l} type="button" aria-pressed={status === l} onClick={() => setStatus(status === l ? "all" : l)} className={`${chip} ${status === l ? chipOn : chipOff}`}>
-                {LEVEL_LABEL[l]} <span className="tabular-nums opacity-60">{counts[l]}</span>
+          <Reveal open={tab === "overview"} className="-mt-3">
+            <div role="group" aria-label="Filter parts by status" className="-mx-5 mt-3 flex gap-2 overflow-x-auto px-5 [scrollbar-width:none] sm:mx-0 sm:flex-wrap sm:px-0">
+              <button type="button" aria-pressed={status === "all"} onClick={() => setStatus("all")} className={`${chip} ${status === "all" ? chipOn : chipOff}`}>All parts <span className="tabular-nums opacity-60">{scoped.length}</span></button>
+              {STATUS_ORDER.map((l) => (
+                <button key={l} type="button" aria-pressed={status === l} onClick={() => setStatus(status === l ? "all" : l)} className={`${chip} ${status === l ? chipOn : chipOff}`}>
+                  {LEVEL_LABEL[l]} <span className="tabular-nums opacity-60">{counts[l]}</span>
+                </button>
+              ))}
+            </div>
+          </Reveal>
+        </div>
+        <div role="tablist" aria-label="Dashboard sections" className="-mx-5 flex overflow-x-auto border-b border-line px-5 [scrollbar-width:none] sm:mx-0 sm:px-0">
+          {TABS.map((t) => {
+            const count = t.id === "overview" ? data.assets.length : t.id === "activity" ? visibleEvents.length : data.tags.length;
+            const active = tab === t.id;
+            return (
+              <button key={t.id} id={`tab-${t.id}`} type="button" role="tab" aria-selected={active} aria-controls={`panel-${t.id}`} onClick={() => setTab(t.id)} className={`-mb-px flex min-h-12 shrink-0 cursor-pointer items-center gap-2 border-b-2 px-1 pr-5 text-base font-medium transition-colors duration-150 ${active ? "border-foreground text-foreground" : "border-transparent text-muted hover:text-foreground"}`}>
+                {t.label} <span className="text-sm tabular-nums opacity-60">{count}</span>
               </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
       </header>
 
-      <div className="flex flex-col gap-12 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:gap-x-16">
-        <section aria-labelledby="assets-heading" className={`${section} flex min-w-0 flex-col gap-6`}>
-          <h2 id="assets-heading" className={h2}>Assets</h2>
-          {groups.length ? (
-            <AssetOverview groups={groups} readings={data.readings} nextSteps={data.next_steps} events={data.events} now={now} />
-          ) : (
-            <div className="flex flex-col items-start gap-4 border-y border-line py-10">
-              <p className="text-muted">{data.components.length ? "No parts match these filters." : "No parts on record yet. Run the seed to load the demo machines."}</p>
-              {filtered && <button type="button" onClick={clearFilters} className={`${btnGhost} ${btnSmall}`}>Clear filters</button>}
+      {tab === "overview" && (
+        <div id="panel-overview" role="tabpanel" aria-labelledby="tab-overview" className="flex flex-col gap-12 lg:grid lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] lg:items-start lg:gap-x-16">
+          <section aria-labelledby="assets-heading" className="flex min-w-0 flex-col gap-6">
+            <h2 id="assets-heading" className={h2}>Assets</h2>
+            {groups.length ? (
+              <AssetOverview groups={groups} readings={data.readings} nextSteps={data.next_steps} events={data.events} now={now} />
+            ) : (
+              <div className="flex flex-col items-start gap-4 border-y border-line py-10">
+                <p className="text-muted">{data.components.length ? "No parts match these filters." : "No parts on record yet. Run the seed to load the demo machines."}</p>
+                {filtered && <button type="button" onClick={clearFilters} className={`${btnGhost} ${btnSmall}`}>Clear filters</button>}
+              </div>
+            )}
+          </section>
+          <section aria-labelledby="latest-heading" className="flex min-w-0 flex-col gap-6 border-t border-line pt-8 lg:border-t-0 lg:pt-0">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <h2 id="latest-heading" className={`${h2} shrink-0`}>Latest from the field</h2>
+              {visibleEvents.length > OVERVIEW_EVENTS && (
+                <button type="button" onClick={() => setTab("activity")} className="min-h-11 cursor-pointer text-sm font-medium underline decoration-line underline-offset-4 transition-colors duration-150 hover:decoration-foreground">
+                  View all {visibleEvents.length}
+                </button>
+              )}
             </div>
-          )}
-        </section>
-        <section aria-labelledby="activity-heading" className={`${section} flex min-w-0 flex-col gap-6`}>
+            <Reveal open={notice !== ""} className="-mt-6">
+              <div role="status" className="mt-6 flex items-start justify-between gap-3 border border-line bg-surface px-4 py-3 text-sm">
+                <p className="flex items-start gap-2.5"><span aria-hidden="true" className="mt-1.5 h-2 w-2 shrink-0 bg-accent" />{notice}</p>
+                <button type="button" onClick={() => setNotice("")} aria-label="Dismiss" className="-mr-2 -mt-1 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-ctl text-muted transition-colors duration-150 hover:text-foreground"><Close /></button>
+              </div>
+            </Reveal>
+            <ActivityFeed events={visibleEvents.slice(0, OVERVIEW_EVENTS)} componentsById={componentsById} assetsById={assetsById} now={now} emptyMessage={data.events.length ? "No activity matches these filters." : "Nothing recorded yet. Notes from the field show up here."} onDeleted={eventDeleted} />
+          </section>
+        </div>
+      )}
+
+      {tab === "activity" && (
+        <section id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" className="flex min-w-0 flex-col gap-6 lg:max-w-3xl">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <h2 id="activity-heading" className={`${h2} shrink-0`}>Recent activity</h2>
-            <p className={meta}>Notes, faults, repairs, inspections</p>
+            <p className={meta}>Notes, faults, repairs and inspections, newest first</p>
           </div>
           <Reveal open={notice !== ""} className="-mt-6">
             <div role="status" className="mt-6 flex items-start justify-between gap-3 border border-line bg-surface px-4 py-3 text-sm">
@@ -154,9 +197,13 @@ export default function Dashboard({ initial }: { initial: DashboardData }) {
           </Reveal>
           <ActivityFeed events={visibleEvents} componentsById={componentsById} assetsById={assetsById} now={now} emptyMessage={data.events.length ? "No activity matches these filters." : "Nothing recorded yet. Notes from the field show up here."} onDeleted={eventDeleted} />
         </section>
-      </div>
+      )}
 
-      <TagManager assets={data.assets} components={data.components} tags={data.tags} tagsLive={data.tags_live} onChanged={refresh} />
+      {tab === "tags" && (
+        <div id="panel-tags" role="tabpanel" aria-labelledby="tab-tags">
+          <TagManager assets={data.assets} components={data.components} tags={data.tags} tagsLive={data.tags_live} onChanged={refresh} />
+        </div>
+      )}
     </main>
   );
 }
