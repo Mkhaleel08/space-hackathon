@@ -9,7 +9,7 @@ import type { Asset, Component, NewComponentRequest, NewComponentResponse, NewTa
 import { forgetPin, loadPin, savePin } from "./operator-pin";
 import TagImage from "./tag-image";
 import Reveal from "../reveal";
-import { btnGhost, btnPrimary, btnSecondary, btnSmall, field, fieldLabel, h2, meta } from "../ui";
+import { btnGhost, btnPrimary, btnSecondary, btnSmall, field, fieldLabel, h2, meta, section } from "../ui";
 
 const ghost = `${btnGhost} ${btnSmall} disabled:cursor-wait`;
 const solid = `${btnPrimary} ${btnSmall} disabled:cursor-wait`;
@@ -70,7 +70,7 @@ export default function TagManager({ assets, components, tags, tagsLive, onChang
   }
 
   return (
-    <section aria-labelledby="tags-heading" className="flex flex-col gap-6">
+    <section aria-labelledby="tags-heading" className={`${section} flex flex-col gap-6`}>
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div>
           <h2 id="tags-heading" className={h2}>AprilTags</h2>
