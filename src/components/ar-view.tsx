@@ -714,7 +714,10 @@ export default function ArView() {
 
     const vw = video.videoWidth;
     const vh = video.videoHeight;
-    const k = Math.min(1, DECODE_WIDTH / vw);
+    // Scale by the short side, not the width: a landscape frame (1280x720) would
+    // otherwise shrink almost twice as hard as a portrait one (720x1280) and
+    // tags that read fine upright fall below the detector's minimum size.
+    const k = Math.min(1, DECODE_WIDTH / Math.min(vw, vh));
     const cw = Math.round(vw * k);
     const ch = Math.round(vh * k);
     const canvas = (canvasRef.current ??= document.createElement("canvas"));
