@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import type { ComponentCard as Card, Reading, Role } from "@/lib/types";
+import type { ComponentCard as Card, NewNoteRequest, NewNoteResponse, Reading, Role } from "@/lib/types";
 import type { ArucoDetector } from "js-aruco2";
 import { componentForTag, DICTIONARY } from "@/lib/markers";
 import {
@@ -24,7 +24,9 @@ import {
  * Live view. The camera stays open and every label in frame gets a node: a
  * dot on the label joined by a line to a compact chip (name + status). Tap a
  * chip and it opens into three glass panels (status, next step, memory)
- * beside its label; the first label seen opens by itself. Nodes glide toward
+ * beside its label; nothing opens until it is tapped. From the memory panel
+ * you can speak a note: the browser transcribes it, the backend's model turns
+ * it into a structured event, and the card re-reads its memory. Nodes glide toward
  * each new detection every animation frame so they move smoothly, and stay
  * upright on screen while tracking position and distance (see LOCK_UPRIGHT). If the plane is viewed too obliquely or the panels would
  * leave the screen, the same panels fall back to a flat stack near the code.
@@ -44,6 +46,31 @@ type CardState =
   | { kind: "error" };
 type ViewState = "idle" | "opening" | "running" | "error";
 type PanelId = "head" | "next" | "memory";
+
+/** A spoken note in progress on the open part. `text` is final, `interim` is still being heard. */
+type VoiceState = { id: string; phase: "listening" | "review" | "saving" | "saved" | "error"; text: string; interim: string; message: string };
+type VoiceAction = "start" | "stop" | "save" | "cancel";
+
+// Browser speech recognition is not in TypeScript's DOM types.
+type Recognition = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+};
+type SpeechWindow = Window & { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
+function speechConstructor() {
+  const w = window as SpeechWindow;
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition;
+}
+const noSubscribe = () => () => {};
+const speechSupported = () => Boolean(speechConstructor());
+const speechOnServer = () => false;
 
 const DECODE_INTERVAL_MS = 90;
 const DECODE_WIDTH = 420;
@@ -72,6 +99,7 @@ const LOCK_UPRIGHT = true;
 const ROLE_KEY = "machine-memory:role";
 const ROLE_EVENT = "machine-memory:role-updated";
 const PANELS: PanelId[] = ["head", "next", "memory"];
+const VOICE_DONE_MS = 2800; // how long "memory updated" stays before the panel goes back to normal
 
 const stripe: Record<Reading["status"], string> = {
   ok: "bg-emerald-400",
@@ -190,6 +218,8 @@ export default function ArView() {
   const tickCountRef = useRef(0);
   const startedRef = useRef(false);
   const openRef = useRef<string | null>(null);
+  const recRef = useRef<Recognition | null>(null);
+  const voiceRef = useRef<VoiceState | null>(null);
 
   const [view, setView] = useState<ViewState>("idle");
   const [error, setError] = useState("");
@@ -197,6 +227,8 @@ export default function ArView() {
   const [openId, setOpenId] = useState<string | null>(null);
   const role = useSyncExternalStore(subscribeRole, readStoredRole, serverRole);
   const [cards, setCards] = useState<Record<string, CardState>>({});
+  const [voiceState, setVoiceState] = useState<VoiceState | null>(null);
+  const speechOk = useSyncExternalStore(noSubscribe, speechSupported, speechOnServer);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [heights, setHeights] = useState<Record<PanelId, number>>({ head: 96, next: 110, memory: 150 });
   // Expanded panels are remembered per open part, so switching to another
@@ -275,6 +307,8 @@ export default function ArView() {
       cancelAnimationFrame(rafRef.current);
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
+      recRef.current?.abort();
+      recRef.current = null;
     };
   }, []);
 
@@ -321,11 +355,148 @@ export default function ArView() {
 
   // Which node is open: only a tap opens one, nothing opens by itself. A node
   // whose label has gone closes. Decided in the frame loop, mirrored in openRef.
-  const openNode = useCallback((id: string | null) => {
-    openRef.current = id;
-    setOpenId(id);
+  // Voice state is mirrored in voiceRef so the frame loop and recognition
+  // callbacks can read it without going through React.
+  const setVoice = useCallback((next: VoiceState | null | ((prev: VoiceState | null) => VoiceState | null)) => {
+    const value = typeof next === "function" ? next(voiceRef.current) : next;
+    voiceRef.current = value;
+    setVoiceState(value);
   }, []);
+  const dropRecognition = useCallback(() => {
+    const rec = recRef.current;
+    if (!rec) return;
+    recRef.current = null;
+    rec.onresult = null;
+    rec.onerror = null;
+    rec.onend = null;
+    rec.abort();
+  }, []);
+  const openNode = useCallback(
+    (id: string | null) => {
+      if (voiceRef.current && voiceRef.current.id !== id) {
+        dropRecognition();
+        setVoice(null);
+      }
+      openRef.current = id;
+      setOpenId(id);
+    },
+    [dropRecognition, setVoice],
+  );
   const closeNode = useCallback(() => openNode(null), [openNode]);
+
+  // Speak a note on the open part. The browser transcribes, the backend's
+  // model files it as a structured event, then the card re-reads its memory
+  // so the summary and next step reflect what was just said.
+  const voiceAction = useCallback(
+    (id: string, action: VoiceAction) => {
+      if (action === "cancel") {
+        dropRecognition();
+        setVoice(null);
+        return;
+      }
+      if (action === "stop") {
+        recRef.current?.stop();
+        return;
+      }
+      if (action === "start") {
+        const Speech = speechConstructor();
+        if (!Speech) return;
+        dropRecognition();
+        const rec = new Speech();
+        rec.lang = "en-US";
+        rec.continuous = false;
+        rec.interimResults = true;
+        let finalText = "";
+        let lastInterim = "";
+        const heardNothing = "Didn’t catch anything. Tap the mic and try again.";
+        rec.onresult = (e) => {
+          let interim = "";
+          for (let i = e.resultIndex; i < e.results.length; i++) {
+            const r = e.results[i];
+            if (r.isFinal) finalText = [finalText, r[0].transcript].join(" ").trim();
+            else interim += r[0].transcript;
+          }
+          lastInterim = interim.trim();
+          setVoice((v) => (v && v.id === id && v.phase === "listening" ? { ...v, text: finalText, interim: lastInterim } : v));
+        };
+        rec.onerror = (e) => {
+          if (recRef.current !== rec) return;
+          recRef.current = null;
+          const denied = e.error === "not-allowed" || e.error === "service-not-allowed";
+          const message = denied
+            ? "Microphone access was denied. Open the full card to type a note."
+            : e.error === "no-speech"
+              ? heardNothing
+              : "Dictation stopped early. Tap the mic to try again.";
+          setVoice((v) => (v && v.id === id ? { ...v, phase: "error", interim: "", message } : v));
+        };
+        rec.onend = () => {
+          if (recRef.current !== rec) return; // dropped, or already reported an error
+          recRef.current = null;
+          const text = (finalText || lastInterim).trim();
+          setVoice((v) => {
+            if (!v || v.id !== id || v.phase !== "listening") return v;
+            return text ? { ...v, phase: "review", text, interim: "" } : { ...v, phase: "error", text: "", interim: "", message: heardNothing };
+          });
+        };
+        recRef.current = rec;
+        setVoice({ id, phase: "listening", text: "", interim: "", message: "" });
+        try {
+          rec.start();
+        } catch {
+          recRef.current = null;
+          setVoice({ id, phase: "error", text: "", interim: "", message: "Dictation isn’t available right now. Open the full card to type a note." });
+        }
+        return;
+      }
+      // save
+      const v = voiceRef.current;
+      if (!v || v.id !== id || v.phase !== "review" || !v.text.trim()) return;
+      const text = v.text.trim();
+      const author = role;
+      const key = `${id}:${author}`;
+      const otherKey = `${id}:${author === "operator" ? "technician" : "operator"}`;
+      setVoice({ ...v, phase: "saving", message: "" });
+      (async () => {
+        try {
+          const body: NewNoteRequest = { text, author_role: author };
+          const res = await fetch(`/api/components/${encodeURIComponent(id)}/notes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) throw new Error(`notes ${res.status}`);
+          const { event } = (await res.json()) as NewNoteResponse;
+          if (!event?.id) throw new Error("no event");
+          // Show the new memory at once; the rewritten summary follows.
+          const patch = (c: Card): Card => ({ ...c, recent_events: [event, ...c.recent_events.filter((e) => e.id !== event.id)].slice(0, 5) });
+          const cached = cacheRef.current.get(key);
+          if (cached) cacheRef.current.set(key, patch(cached));
+          cacheRef.current.delete(otherKey);
+          setCards((prev) => {
+            const next = { ...prev };
+            delete next[otherKey]; // the other role re-reads on its next switch
+            const s = prev[key];
+            if (s?.kind === "ready") next[key] = { kind: "ready", card: patch(s.card) };
+            return next;
+          });
+          setExpandedFor((prev) => ({ ...(prev.id === id ? prev : { id, head: false, next: false, memory: false }), memory: true }));
+          setVoice((cur) => (cur && cur.id === id && cur.phase === "saving" ? { ...cur, phase: "saved", message: `Filed as ${event.type}. Re-reading the memory…` } : cur));
+          const fresh = await fetch(`/api/components/${encodeURIComponent(id)}/card?role=${author}`, { cache: "no-store" });
+          if (fresh.ok) {
+            const card: Card = await fresh.json();
+            cacheRef.current.set(key, card);
+            setCards((prev) => ({ ...prev, [key]: { kind: "ready", card } }));
+          }
+          setVoice((cur) => (cur && cur.id === id && cur.phase === "saved" ? { ...cur, message: "Memory updated." } : cur));
+          window.setTimeout(() => setVoice((cur) => (cur && cur.id === id && cur.phase === "saved" ? null : cur)), VOICE_DONE_MS);
+        } catch {
+          setVoice((cur) => (cur && cur.id === id && cur.phase === "saving" ? { ...cur, phase: "review", message: "Couldn’t save. Check the connection and try again." } : cur));
+        }
+      })();
+    },
+    [dropRecognition, role, setVoice],
+  );
 
   async function start() {
     if (view === "opening" || view === "running") return;
@@ -435,7 +606,8 @@ export default function ArView() {
     const next: Anchor[] = [];
     for (const [id, t] of tracksRef.current) {
       const age = now - t.seenAt;
-      if (age > REMOVE_AFTER_MS) {
+      // A part with a spoken note in progress stays (docked, as lost) until the note is done.
+      if (age > REMOVE_AFTER_MS && voiceRef.current?.id !== id) {
         tracksRef.current.delete(id);
         changed = true;
         continue;
@@ -616,13 +788,23 @@ export default function ArView() {
 
   const openState: CardState = open ? cardFor(open.id) : { kind: "loading" };
   const openLost = open?.lost ?? false;
-  const panelNodes = (
-    <>
-      <Panel id="head" setRef={bindPanel.head} state={openState} partId={open?.id ?? ""} lost={openLost} expanded={expanded.head} onToggle={togglePanel} onClose={closeNode} />
-      <Panel id="next" setRef={bindPanel.next} state={openState} partId={open?.id ?? ""} lost={openLost} expanded={expanded.next} onToggle={togglePanel} onClose={closeNode} />
-      <Panel id="memory" setRef={bindPanel.memory} state={openState} partId={open?.id ?? ""} lost={openLost} expanded={expanded.memory} onToggle={togglePanel} onClose={closeNode} />
-    </>
-  );
+  const openVoice = open && voiceState?.id === open.id ? voiceState : null;
+  const panelNodes = PANELS.map((id) => (
+    <Panel
+      key={id}
+      id={id}
+      setRef={bindPanel[id]}
+      state={openState}
+      partId={open?.id ?? ""}
+      lost={openLost}
+      expanded={expanded[id]}
+      onToggle={togglePanel}
+      onClose={closeNode}
+      voice={openVoice}
+      speechOk={speechOk}
+      onVoice={voiceAction}
+    />
+  ));
 
   return (
     <div ref={containerRef} className="fixed inset-0 overflow-hidden bg-black text-white">
@@ -742,9 +924,9 @@ export default function ArView() {
       {/* Panels on the plane */}
       {running && open && mode === "world" && (
         <div className="absolute inset-0 z-10" aria-label="Part card" role="region">
-          {PANELS.map((id) => (
+          {PANELS.map((id, i) => (
             <div key={id} className="absolute left-0 top-0 origin-top-left will-change-transform" style={{ width: PANEL_W, transform: panelTransforms[id] }}>
-              <Panel id={id} setRef={bindPanel[id]} state={openState} partId={open.id} lost={openLost} expanded={expanded[id]} onToggle={togglePanel} onClose={closeNode} />
+              {panelNodes[i]}
             </div>
           ))}
         </div>
@@ -858,6 +1040,9 @@ const Panel = memo(function Panel({
   expanded,
   onToggle,
   onClose,
+  voice,
+  speechOk,
+  onVoice,
 }: {
   id: PanelId;
   setRef: (el: HTMLDivElement | null) => void;
@@ -867,6 +1052,9 @@ const Panel = memo(function Panel({
   expanded: boolean;
   onToggle: (id: PanelId) => void;
   onClose: () => void;
+  voice: VoiceState | null;
+  speechOk: boolean;
+  onVoice: (id: string, action: VoiceAction) => void;
 }) {
   // Every panel is a tap target: tap to expand in place, tap again to collapse.
   const tappable = {
@@ -1012,13 +1200,109 @@ const Panel = memo(function Panel({
           ))}
         </ol>
       )}
-      <Link
-        href={href}
-        onClick={(e) => e.stopPropagation()}
-        className="mt-3 flex min-h-11 items-center justify-center rounded-full bg-white px-4 text-sm font-medium text-black hover:bg-neutral-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-      >
-        {expanded ? "Add a note →" : "History & add a note →"}
-      </Link>
+      {voice ? (
+        <VoiceBox voice={voice} onVoice={onVoice} />
+      ) : (
+        <div className="mt-3 flex gap-2">
+          {speechOk && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onVoice(partId, "start");
+              }}
+              onKeyDown={(e) => e.stopPropagation()}
+              className={`${primaryBtn} flex-1`}
+            >
+              <MicIcon />
+              Speak a note
+            </button>
+          )}
+          <Link
+            href={href}
+            onClick={(e) => e.stopPropagation()}
+            className={speechOk ? ghostBtn : `${primaryBtn} flex-1`}
+          >
+            {speechOk ? "Full card →" : expanded ? "Add a note →" : "History & add a note →"}
+          </Link>
+        </div>
+      )}
     </div>
   );
 });
+
+const primaryBtn =
+  "flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-4 text-sm font-medium text-black hover:bg-neutral-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-wait disabled:opacity-60";
+const ghostBtn =
+  "flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-full border border-white/30 px-4 text-sm font-medium text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+
+function MicIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5.5" y="1.5" width="5" height="8" rx="2.5" />
+      <path d="M3 7.5a5 5 0 0 0 10 0M8 12.5v2M5.5 14.5h5" />
+    </svg>
+  );
+}
+
+/** The spoken-note strip at the foot of the memory panel: listening, review, saving, saved, or error. */
+function VoiceBox({ voice, onVoice }: { voice: VoiceState; onVoice: (id: string, action: VoiceAction) => void }) {
+  const { id, phase } = voice;
+  const act = (action: VoiceAction) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onVoice(id, action);
+  };
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  const quote = (voice.text || voice.interim) && (
+    <p className="mt-2 text-[15px] leading-snug text-white">
+      {voice.text}
+      {voice.interim && <span className="text-white/55">{voice.text ? " " : ""}{voice.interim}</span>}
+    </p>
+  );
+  return (
+    <div className="mt-3 cursor-default rounded-xl bg-black/35 p-3 ring-1 ring-white/15" onClick={stop} onKeyDown={stop} role="group" aria-label="Spoken note">
+      {phase === "listening" && (
+        <>
+          <p role="status" className="flex items-center gap-2 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-red-200">
+            <span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+            Listening… say what you noticed
+          </p>
+          {quote}
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={act("stop")} className={`${primaryBtn} flex-1`}>Done</button>
+            <button type="button" onClick={act("cancel")} className={ghostBtn}>Cancel</button>
+          </div>
+        </>
+      )}
+      {(phase === "review" || phase === "saving") && (
+        <>
+          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">{phase === "saving" ? "Saving…" : "Heard"}</p>
+          {quote}
+          {voice.message && <p role="alert" className="mt-2 text-[12px] text-red-200">{voice.message}</p>}
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={act("save")} disabled={phase === "saving"} aria-busy={phase === "saving"} className={`${primaryBtn} flex-1`}>
+              {phase === "saving" ? "Saving note…" : "Save note"}
+            </button>
+            <button type="button" onClick={act("start")} disabled={phase === "saving"} aria-label="Say it again" className={ghostBtn}><MicIcon /></button>
+            <button type="button" onClick={act("cancel")} disabled={phase === "saving"} className={ghostBtn}>Cancel</button>
+          </div>
+        </>
+      )}
+      {phase === "saved" && (
+        <>
+          <p role="status" className="font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-200">{voice.message}</p>
+          {quote}
+        </>
+      )}
+      {phase === "error" && (
+        <>
+          <p role="alert" className="text-[13px] leading-snug text-amber-100">{voice.message}</p>
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={act("start")} className={`${primaryBtn} flex-1`}><MicIcon />Try again</button>
+            <button type="button" onClick={act("cancel")} className={ghostBtn}>Cancel</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
