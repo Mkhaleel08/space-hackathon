@@ -1,7 +1,8 @@
 import Link from "next/link";
 import CameraScanner from "@/components/camera-scanner";
-import { ArrowLeft, ArrowRight } from "@/components/icons";
-import { h1, h2, meta, section } from "@/components/ui";
+import { ArrowRight } from "@/components/icons";
+import SiteHeader from "@/components/site-header";
+import s from "@/components/workspace.module.css";
 
 export const metadata = { title: "Scan a part | Machine Memory" };
 
@@ -14,29 +15,52 @@ const PARTS = [
 
 export default function ScanPage() {
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-10 px-6 py-6 sm:py-10">
-      <Link href="/" className="inline-flex min-h-11 w-fit items-center gap-2 text-sm font-medium text-muted hover:text-foreground">
-        <ArrowLeft /> Machine Memory
-      </Link>
-      <header>
-        <h1 className={h1}>Scan a part</h1>
-        <p className={`${meta} mt-2 text-base`}>Open the camera and point it at the label on the part.</p>
-      </header>
-      <CameraScanner />
-      <section aria-labelledby="choose-part-heading" className={section}>
-        <h2 id="choose-part-heading" className={h2}>Or choose a part</h2>
-        <p className={`${meta} mt-1`}>Open its history without the camera.</p>
-        <ul className="mt-4 border-t border-line">
-          {PARTS.map(([id, name]) => (
-            <li key={id} className="border-b border-line">
-              <Link href={`/components/${id}`} className="flex min-h-14 items-center justify-between gap-3 py-3 font-medium hover:text-muted">
-                <span>{name}</span>
-                <ArrowRight className="h-4 w-4 shrink-0 text-muted" />
+    <>
+      <SiteHeader active="scan" />
+      <main id="main-content" className={s.scanPage}>
+        <header className={s.pageHeading}>
+          <div>
+            <p className={s.eyebrow}>At the machine</p>
+            <h1>Find the part. Know its story.</h1>
+            <p>
+              Scan a QR label to open the part’s history. For AprilTags, use{" "}
+              <Link href="/ar" className="underline underline-offset-4">
+                live view
               </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </main>
+              .
+            </p>
+          </div>
+        </header>
+        <div className={s.scanColumns}>
+          <CameraScanner />
+          <section
+            aria-labelledby="choose-part-heading"
+            className={s.scanLibrary}
+          >
+            <h2 id="choose-part-heading">No label nearby?</h2>
+            <p>
+              Choose a demo part below, or find every part in the{" "}
+              <Link href="/dashboard" className="underline underline-offset-4">
+                dashboard
+              </Link>
+              .
+            </p>
+            <ul className="mt-4 border-t border-line">
+              {PARTS.map(([id, name]) => (
+                <li key={id} className="border-b border-line">
+                  <Link
+                    href={`/components/${id}`}
+                    className="flex min-h-14 items-center justify-between gap-3 py-3 font-medium hover:text-muted"
+                  >
+                    <span>{name}</span>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      </main>
+    </>
   );
 }

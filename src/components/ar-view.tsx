@@ -1041,7 +1041,7 @@ export default function ArView() {
       {/* Top bar */}
       <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between gap-3 p-4 pt-[max(1rem,env(safe-area-inset-top))]">
         <Link href="/" className="pointer-events-auto flex min-h-11 items-center rounded-ctl bg-black/50 px-4 font-medium backdrop-blur focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-          <ArrowLeft className="mr-2 h-4 w-4" />Machine Memory
+          <ArrowLeft className="mr-2 h-4 w-4 shrink-0" />Home
         </Link>
         <div role="group" aria-label="View as" className="pointer-events-auto grid grid-cols-2 gap-0.5 rounded-ctl bg-black/50 p-0.5 backdrop-blur">
           {(["operator", "technician"] as const).map((v) => (
@@ -1050,7 +1050,7 @@ export default function ArView() {
               type="button"
               aria-pressed={role === v}
               onClick={() => selectRole(v)}
-              className={`min-h-10 cursor-pointer rounded-[2px] px-3 text-sm font-medium capitalize focus-visible:outline-2 focus-visible:outline-white ${role === v ? "bg-[#ffcd11] text-black" : "text-white"}`}
+              className={`min-h-11 cursor-pointer rounded-[5px] px-3 text-sm font-medium capitalize focus-visible:outline-2 focus-visible:outline-white ${role === v ? "bg-[#ffcd11] text-black" : "text-white"}`}
             >
               {v}
             </button>
@@ -1064,7 +1064,7 @@ export default function ArView() {
           <div>
             <h1 className="text-3xl font-semibold">Live view</h1>
             <p className="mt-3 max-w-xs text-balance text-neutral-300">
-              Point the camera at a part. Its memory pins itself to the label, no buttons.
+              Point at an AprilTag. Tap the part to open its history and record a note.
             </p>
           </div>
           {error && (
@@ -1077,7 +1077,7 @@ export default function ArView() {
             onClick={start}
             disabled={view === "opening"}
             aria-busy={view === "opening"}
-            className="min-h-14 cursor-pointer rounded-full bg-white px-8 py-4 text-lg font-medium text-black hover:bg-neutral-200 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white disabled:cursor-wait disabled:opacity-60"
+            className="min-h-14 cursor-pointer rounded-lg bg-[#ffcd11] px-8 py-4 text-base font-medium text-black hover:bg-[#f0bf0a] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white disabled:cursor-wait disabled:opacity-60"
           >
             {view === "opening" ? "Opening camera…" : view === "error" ? "Try again" : "Start live view"}
           </button>

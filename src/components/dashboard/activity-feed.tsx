@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import s from "../workspace.module.css";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import { OPERATOR_PIN_HEADER } from "@/lib/operator";
@@ -61,9 +62,10 @@ function ActivityItem({ event, component, asset, now, onDeleted }: {
   return (
     <li className="border-b border-line">
       <button type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((v) => !v)} className="flex min-h-14 w-full cursor-pointer items-start gap-3 py-3.5 text-left hover:bg-surface sm:-mx-3 sm:w-[calc(100%+1.5rem)] sm:px-3">
+        <span aria-hidden="true" className={`${s.activityDot} ${typeTone[event.type]}`}><i /></span>
         <span className="min-w-0 flex-1">
-          <span className="block font-medium leading-snug">{event.summary}</span>
-          <span className="mt-1 block text-sm text-muted">
+          <span className={s.activitySummary}>{event.summary}</span>
+          <span className={`block ${s.activityMeta}`}>
             <span className={`font-medium capitalize ${typeTone[event.type]}`}>{event.type}</span> · {component?.name ?? event.component_id}{asset ? ` · ${asset.name}` : ""} ·{" "}
             <time dateTime={event.created_at} title={formatAbsolute(event.created_at)} suppressHydrationWarning>{timeAgo(event.created_at, now)}</time>
           </span>
