@@ -2,7 +2,7 @@
 
 AprilTag 36h11 markers, one per component. The tag carries only a number;
 `src/lib/markers.ts` maps it to the component id. Ids 0-3 are the Cat 320,
-10-13 the demo car.
+10-14 the BMW M3 used for the live demo (page 1 of the print sheet).
 
 The live tag map is the `tags` table (see `/api/tags`); the operator
 dashboard at `/dashboard` adds parts, assigns the next free id, and prints

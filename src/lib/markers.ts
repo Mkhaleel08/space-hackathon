@@ -2,7 +2,7 @@
  * AprilTag (36h11 family) id -> component id. Printed labels carry only the
  * tag. The live table is `tags` in Supabase (GET /api/tags); this static map
  * seeds it and is the fallback when the API is unreachable. Ids 0-9 are the
- * Cat 320, 10-19 the demo car.
+ * Cat 320, 10-19 the BMW M3 used for the live demo.
  */
 export const TAG_TO_COMPONENT: Record<number, string> = {
   0: "hyd-pump",
@@ -13,6 +13,7 @@ export const TAG_TO_COMPONENT: Record<number, string> = {
   11: "car-battery",
   12: "car-air-filter",
   13: "car-tire-lf",
+  14: "car-engine-oil",
 };
 
 export const DICTIONARY = "APRILTAG_36h11";
