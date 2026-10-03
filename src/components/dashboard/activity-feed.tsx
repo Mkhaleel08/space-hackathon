@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import s from "../workspace.module.css";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import { OPERATOR_PIN_HEADER } from "@/lib/operator";
 import type { Asset, Component, MachineEvent } from "@/lib/types";
-import { ChevronDown } from "../icons";
-import Reveal from "../reveal";
+import { ArrowRight, ChevronDown } from "../icons";
 import { btnDanger, btnGhost, btnSmall, field, fieldLabel } from "../ui";
 import { formatAbsolute, timeAgo } from "./format";
 import { forgetPin, loadPin, savePin } from "./operator-pin";
@@ -62,27 +62,28 @@ function ActivityItem({ event, component, asset, now, onDeleted }: {
   return (
     <li className="border-b border-line">
       <button type="button" aria-expanded={open} aria-controls={detailId} onClick={() => setOpen((v) => !v)} className="flex min-h-14 w-full cursor-pointer items-start gap-3 py-3.5 text-left hover:bg-surface sm:-mx-3 sm:w-[calc(100%+1.5rem)] sm:px-3">
+        <span aria-hidden="true" className={`${s.activityDot} ${typeTone[event.type]}`}><i /></span>
         <span className="min-w-0 flex-1">
-          <span className="block font-medium leading-snug">{event.summary}</span>
-          <span className="mt-1 flex flex-wrap justify-between gap-x-4 text-sm text-muted">
-            <span><span className={`font-medium capitalize ${typeTone[event.type]}`}>{event.type}</span>, {component?.name ?? event.component_id}{asset ? ` on ${asset.name}` : ""}</span>
+          <span className={s.activitySummary}>{event.summary}</span>
+          <span className={`block ${s.activityMeta}`}>
+            <span className={`font-medium capitalize ${typeTone[event.type]}`}>{event.type}</span> · {component?.name ?? event.component_id}{asset ? ` · ${asset.name}` : ""} ·{" "}
             <time dateTime={event.created_at} title={formatAbsolute(event.created_at)} suppressHydrationWarning>{timeAgo(event.created_at, now)}</time>
           </span>
         </span>
         <ChevronDown className={`mt-1.5 h-4 w-4 shrink-0 text-muted transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
       </button>
-      <Reveal open={open} id={detailId}>
-        <div className="flex flex-col gap-4 pb-5 text-sm">
+      {open && (
+        <div id={detailId} className="flex flex-col gap-4 pb-5 text-sm">
           {event.detail && event.detail.trim() !== event.summary.trim() ? (
             <p className="max-w-[65ch] whitespace-pre-wrap leading-relaxed text-muted">{event.detail}</p>
           ) : <p className="text-muted">No detail beyond the summary was recorded.</p>}
           <p className="text-xs text-muted">
-            Recorded <time dateTime={event.created_at} suppressHydrationWarning>{formatAbsolute(event.created_at)}</time> by the {event.author_role}{component ? `. ${component.location}.` : "."}
+            Recorded <time dateTime={event.created_at} suppressHydrationWarning>{formatAbsolute(event.created_at)}</time> by the <span className="capitalize">{event.author_role.toLowerCase()}</span>{component ? ` · ${component.location}` : ""}
           </p>
           <div className="flex flex-wrap items-center justify-between gap-3">
             {component ? (
               <Link href={`/components/${component.id}`} className={`${btnGhost} ${btnSmall}`}>
-                Open {component.name}
+                Open {component.name} <ArrowRight />
               </Link>
             ) : <span />}
             <button type="button" onClick={() => setConfirming(true)} className={`${btnGhost} ${btnSmall} text-alert hover:border-alert`}>
@@ -90,7 +91,7 @@ function ActivityItem({ event, component, asset, now, onDeleted }: {
             </button>
           </div>
         </div>
-      </Reveal>
+      )}
       {confirming && (
         <DeleteDialog event={event} component={component} asset={asset} onClose={() => setConfirming(false)} onDeleted={() => { setConfirming(false); onDeleted(event, component); }} />
       )}
@@ -163,9 +164,9 @@ function DeleteDialog({ event, component, asset, onClose, onDeleted }: {
         <div className="border-y border-line py-3 text-sm">
           <p className="font-medium leading-snug">{event.summary}</p>
           <p className="mt-1 text-muted">
-            <span className="capitalize">{event.type}</span> by the {event.author_role}, <time dateTime={event.created_at}>{formatAbsolute(event.created_at)}</time>
+            <span className="capitalize">{event.type}</span> · <span className="capitalize">{event.author_role}</span> · <time dateTime={event.created_at}>{formatAbsolute(event.created_at)}</time>
           </p>
-          <p className="mt-0.5 text-muted">{component?.name ?? event.component_id}{asset ? ` on ${asset.name}` : ""}</p>
+          <p className="mt-0.5 text-muted">{component?.name ?? event.component_id}{asset ? ` · ${asset.name}` : ""}</p>
         </div>
         <p className="text-sm text-muted">
           It disappears from this dashboard and from the part’s history, and the part’s summary and next step are rewritten without it. Readings and every other record stay.

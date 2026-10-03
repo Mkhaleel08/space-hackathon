@@ -1,33 +1,31 @@
 @import "tailwindcss";
 
-/*
- * One neutral surface, one accent. The accent (Cat yellow) is spent only on
- * the page's primary action, the active role, a live dictation state and
- * "just saved" flags. Status colours are semantic marks, never fills.
- * Ink is black, not a tinted near-black.
- */
+/* Shared palette for field screens and the operator workspace.
+ * Panels separate working areas; yellow prioritizes actions and next steps.
+ * Status always has a text label in addition to its semantic color. */
 :root {
-  --background: #ffffff;
-  --foreground: #000000;
-  --muted: #5a5a5a;
-  --line: #eaeaea;
-  --surface: #f6f6f6;
+  --background: #f7f8fa;
+  --panel: #ffffff;
+  --foreground: #192125;
+  --muted: #626d73;
+  --line: #e0e5e8;
+  --surface: #eef1f3;
   --accent: #ffcd11;
-  --accent-ink: #000000;
+  --accent-ink: #111111;
   --ok: #1f7a3d;
   --watch: #9a5b00;
   --alert: #b42318;
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #000000;
-    --foreground: #ededed;
-    --muted: #a1a1a1;
-    --line: #262626;
-    --surface: #141414;
+    --background: #12181c;
+    --panel: #1a2227;
+    --foreground: #edf1f3;
+    --muted: #a5b0b7;
+    --line: #303b42;
+    --surface: #222c32;
     --ok: #5dc27a;
     --watch: #d98b2b;
     --alert: #f97066;
@@ -45,11 +43,9 @@
   --color-ok: var(--ok);
   --color-watch: var(--watch);
   --color-alert: var(--alert);
-  --font-sans: var(--font-barlow);
-  --font-display: var(--font-barlow-display);
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --radius-ctl: 4px;
-  --ease-out-expo: var(--ease-out);
+  --radius-ctl: 8px;
 }
 
 html {
@@ -59,7 +55,8 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-barlow), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
 }
 
 ::selection {
@@ -78,95 +75,11 @@ select {
   caret-color: var(--foreground);
 }
 
-/* --- Motion -------------------------------------------------------------
- * Feedback and continuity only. Enter and exit ease out; nothing runs on
- * page load. Reduced motion collapses every duration below.
- */
-
-/* Height from 0 to auto without measuring: a one-row grid whose track grows. */
-.reveal {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 200ms var(--ease-out);
-}
-.reveal[data-open="true"] {
-  grid-template-rows: 1fr;
-}
-.reveal > * {
-  min-height: 0;
-  overflow: hidden;
-  opacity: 0;
-  transition: opacity 150ms var(--ease-out);
-}
-.reveal[data-open="true"] > * {
-  opacity: 1;
-  transition-delay: 40ms;
-}
-
-/* The saved note's row grows into the history list. */
-@keyframes mm-grow {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-.mm-grow {
-  animation: mm-grow 240ms var(--ease-out) both;
-}
-
-/* The card's summary and next step changed after a save: dip and return. */
-@keyframes mm-refresh {
-  0% {
-    opacity: 1;
-  }
-  35% {
-    opacity: 0.35;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-.mm-refresh {
-  animation: mm-refresh 260ms var(--ease-out) both;
-}
-
-/* Dialogs arrive, they do not pop. */
-dialog[open] {
-  animation: mm-dialog-in 180ms var(--ease-out);
-}
-dialog[open]::backdrop {
-  animation: mm-backdrop-in 160ms var(--ease-out);
-}
-@keyframes mm-dialog-in {
-  from {
-    opacity: 0;
-    transform: scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-@keyframes mm-backdrop-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
-    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
-    transition-delay: 0ms !important;
   }
 }

@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { MachineEvent, NewNoteRequest, NewNoteResponse, Role } from "@/lib/types";
 import { Mic } from "./icons";
-import { btnGhost, btnPrimary, btnSecondary, field as fieldStyle, h2, meta, section } from "./ui";
+import { btnGhost, btnPrimary, field as fieldStyle, h2, meta, section } from "./ui";
 
 // Browser speech recognition is not included in TypeScript's DOM types.
 type Recognition = {
@@ -167,7 +167,7 @@ export default function NoteForm({ id, role, onSaved, onCheckHistory }: {
 
   const hasText = text.trim().length > 0;
   return (
-    <section aria-labelledby="note-heading" className={`${section} lg:border-t-0 lg:border-l lg:border-line lg:pl-8 lg:pt-0`}>
+    <section aria-labelledby="note-heading" className={section}>
       <dialog ref={leaveDialog} onCancel={event => { event.preventDefault(); setLeaveHref(null); }} aria-labelledby="leave-note-heading" aria-describedby="leave-note-description" className="m-auto w-[calc(100%-3rem)] max-w-sm rounded-ctl border border-line bg-background p-6 text-foreground backdrop:bg-black/60">
         <h2 id="leave-note-heading" className="text-xl font-semibold tracking-tight">{saving ? "Your note is saving" : "Leave this note?"}</h2>
         <p id="leave-note-description" className="mt-3 text-muted">{saving ? "Wait for the save to finish before leaving this part." : "Your unsaved text will be lost if you continue."}</p>
@@ -184,9 +184,9 @@ export default function NoteForm({ id, role, onSaved, onCheckHistory }: {
         {listening && <p role="status" className="flex items-center gap-2 text-sm font-medium"><span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-accent" />Listening. Tap Stop when you’re done.</p>}
         {voiceError && <p role="alert" className="text-sm text-alert">{voiceError}</p>}
         {error && <p id="note-error" role="alert" className="text-sm text-alert">{error}</p>}
-        <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+        <div className="flex flex-col gap-3 sm:flex-row">
           {supported && (
-            <button type="button" onClick={dictate} disabled={saving} aria-pressed={listening} className={`${listening ? btnPrimary : hasText ? btnGhost : btnSecondary} min-h-14 sm:flex-1`}>
+            <button type="button" onClick={dictate} disabled={saving} aria-pressed={listening} className={`${listening ? btnPrimary : hasText ? btnGhost : btnPrimary} min-h-14 sm:flex-1`}>
               <Mic className="h-5 w-5" />
               {listening ? "Stop dictation" : "Dictate note"}
             </button>
@@ -195,7 +195,7 @@ export default function NoteForm({ id, role, onSaved, onCheckHistory }: {
         </div>
         {uncertain && <button type="button" onClick={onCheckHistory} className={btnGhost}>Check recent history</button>}
         {!supported && <p className={meta}>Voice dictation isn’t available in this browser.</p>}
-        <p role="status" className="min-h-6 text-sm text-muted">{saved ? "Saved to this part’s history." : ""}</p>
+        <p role="status" className="text-sm text-muted">{saved ? "Saved to this part’s history." : ""}</p>
       </form>
     </section>
   );

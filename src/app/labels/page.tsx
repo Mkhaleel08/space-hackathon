@@ -47,7 +47,7 @@ export default async function LabelsPage({ searchParams }: { searchParams: Promi
               </div>
               <h2 className="mt-2 text-lg font-semibold leading-tight">{component.name}</h2>
               <p className="mt-0.5 text-sm text-neutral-600">{component.location}</p>
-              <p className="mt-1.5 text-xs text-neutral-500">Tag {tag.tag_id}, {component.id}, {assetsById.get(component.asset_id)?.name ?? component.asset_id}</p>
+              <p className="mt-1.5 font-mono text-[11px] text-neutral-500">tag {tag.tag_id} · {component.id} · {assetsById.get(component.asset_id)?.name ?? component.asset_id}</p>
             </li>
           ))}
         </ul>
