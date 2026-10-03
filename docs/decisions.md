@@ -25,3 +25,11 @@ change one of these, the answer is no until after submission.
 - Phone vs. headset: phone is what crews already carry
 - QR markers vs. markerless recognition: reliability over wow factor
 - Simulated vs. real telematics: no data access in a weekend; schema accepts real feeds
+
+## Addendum, Oct 2 11:45 PM (Mehran)
+
+Live view (`/ar`) added on top of the QR flow: the camera stays open and the
+part's card pins itself to the detected code with a leader line. It is still
+QR-anchored. No markerless recognition, no WebXR. The AR row above stands as
+written; this is the "pinned cards" half of it, done over live video instead
+of on a separate page. Falls back to the plain scanner at `/scan`.
