@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { ComponentCard as Card, MachineEvent, Role } from "@/lib/types";
 import ComponentCard from "./component-card";
@@ -14,6 +14,19 @@ export default function ComponentCardLoader({ id, role }: { id: string; role: Ro
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState(false);
 
+  const [savedEventId, setSavedEventId] = useState<string>();
+  const savedEvent = useRef<MachineEvent | null>(null);
+
+  useEffect(() => {
+    if (!savedEventId) return;
+    const heading = document.getElementById("events-heading");
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+      block: "start",
+    });
+  }, [savedEventId]);
+
   function refreshCard() {
     setRefreshing(true);
     setRefreshError(false);
@@ -21,6 +34,8 @@ export default function ComponentCardLoader({ id, role }: { id: string; role: Ro
   }
 
   function noteSaved(event: MachineEvent) {
+    savedEvent.current = event;
+    setSavedEventId(event.id);
     // The POST has confirmed persistence. Show that event while the new
     // summary and recommendation are fetched, even if that GET fails.
     setResult(previous => previous.kind === "ready" ? {
@@ -45,7 +60,14 @@ export default function ComponentCardLoader({ id, role }: { id: string; role: Ro
         }
         if (!response.ok) throw new Error("Card request failed");
         const card: Card = await response.json();
-        if (active) setResult({ kind: "ready", card });
+        if (active) {
+          // Keep the confirmed note visible if a refresh returns stale history.
+          const confirmed = savedEvent.current;
+          if (confirmed && !card.recent_events.some(event => event.id === confirmed.id)) {
+            card.recent_events = [confirmed, ...card.recent_events].slice(0, 5);
+          }
+          setResult({ kind: "ready", card });
+        }
       } catch {
         if (active) {
           setResult(previous => previous.kind === "ready" ? previous : { kind: "error" });
@@ -66,7 +88,7 @@ export default function ComponentCardLoader({ id, role }: { id: string; role: Ro
         {refreshing && <p>Refreshing history and next step…</p>}
         {refreshError && <p role="alert">Couldn’t refresh the card. The details below may be out of date. <button type="button" onClick={refreshCard} className="min-h-11 cursor-pointer rounded px-2 underline underline-offset-4 hover:opacity-70 focus-visible:outline-2">Refresh card</button></p>}
       </div>
-      <ComponentCard card={result.card} />
+      <ComponentCard card={result.card} savedEventId={savedEventId} />
       <NoteForm id={id} role={role} onSaved={noteSaved} onCheckHistory={refreshCard} />
     </>
   );
