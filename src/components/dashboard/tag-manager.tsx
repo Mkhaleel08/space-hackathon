@@ -8,6 +8,7 @@ import { labelSvgString } from "@/lib/tag-svg";
 import type { Asset, Component, NewComponentRequest, NewComponentResponse, NewTagRequest, TagAssignment } from "@/lib/types";
 import { forgetPin, loadPin, savePin } from "./operator-pin";
 import TagImage from "./tag-image";
+import Reveal from "../reveal";
 import { btnGhost, btnPrimary, btnSecondary, btnSmall, field, fieldLabel, h2, meta, section } from "../ui";
 
 const ghost = `${btnGhost} ${btnSmall} disabled:cursor-wait`;
@@ -87,7 +88,7 @@ export default function TagManager({ assets, components, tags, tagsLive, onChang
         </p>
       )}
 
-      {adding && (
+      <Reveal open={adding}>
         <AddPartForm assets={assets} busy={busyId === "new"} onSubmit={async (body, pin) => {
           setBusyId("new");
           setOutcome(null);
@@ -112,7 +113,7 @@ export default function TagManager({ assets, components, tags, tagsLive, onChang
             setBusyId(null);
           }
         }} />
-      )}
+      </Reveal>
 
       {outcome && (
         <div role={outcome.kind === "ok" ? "status" : "alert"} className="flex flex-wrap items-center justify-between gap-3 border border-line bg-surface px-4 py-3 text-sm">
@@ -136,7 +137,7 @@ export default function TagManager({ assets, components, tags, tagsLive, onChang
                 <div className="min-w-0">
                   <p className="font-medium leading-snug">{component.name}</p>
                   <p className="truncate text-sm text-muted" title={component.location}>{component.location}</p>
-                  <p className="mt-0.5 text-xs text-muted">{asset?.name ?? component.asset_id} · <span className="font-mono">{tagId === undefined ? "untagged" : `tag ${tagId}`}</span></p>
+                  <p className="mt-0.5 text-xs text-muted">{tagId === undefined ? "No tag yet" : `Tag ${tagId}`}, {asset?.name ?? component.asset_id}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {tagId === undefined ? (
