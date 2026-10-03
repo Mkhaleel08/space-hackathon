@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import s from "../workspace.module.css";
 import type { FormEvent } from "react";
 import Link from "next/link";
 import { OPERATOR_PIN_HEADER } from "@/lib/operator";
@@ -122,12 +121,12 @@ export default function TagManager({ assets, components, tags, tagsLive, onChang
         </div>
       )}
 
-      <ul className={s.tagGrid}>
+      <ul className="grid border-t border-line sm:grid-cols-2 sm:gap-x-10 xl:grid-cols-3">
         {[...untagged, ...components.filter((c) => tagByComponent.has(c.id))].map((component) => {
           const tagId = tagByComponent.get(component.id);
           const asset = assetsById.get(component.asset_id);
           return (
-            <li key={component.id} className={s.tagCard}>
+            <li key={component.id} className="flex gap-4 border-b border-line py-4">
               <div className="h-20 w-20 shrink-0 border border-line bg-white">
                 {tagId === undefined
                   ? <div className="flex h-full w-full items-center justify-center bg-surface text-xs text-muted">No tag</div>

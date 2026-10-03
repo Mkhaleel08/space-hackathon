@@ -5,7 +5,7 @@ import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { MachineEvent, NewNoteRequest, NewNoteResponse, Role } from "@/lib/types";
 import { Mic } from "./icons";
-import { btnGhost, btnPrimary, field as fieldStyle, h2, meta, section } from "./ui";
+import { btnGhost, btnPrimary, btnSecondary, field as fieldStyle, h2, meta, section } from "./ui";
 
 // Browser speech recognition is not included in TypeScript's DOM types.
 type Recognition = {
@@ -186,7 +186,7 @@ export default function NoteForm({ id, role, onSaved, onCheckHistory }: {
         {error && <p id="note-error" role="alert" className="text-sm text-alert">{error}</p>}
         <div className="flex flex-col gap-3 sm:flex-row">
           {supported && (
-            <button type="button" onClick={dictate} disabled={saving} aria-pressed={listening} className={`${listening ? btnPrimary : hasText ? btnGhost : btnPrimary} min-h-14 sm:flex-1`}>
+            <button type="button" onClick={dictate} disabled={saving} aria-pressed={listening} className={`${listening ? btnPrimary : hasText ? btnGhost : btnSecondary} min-h-14 sm:flex-1`}>
               <Mic className="h-5 w-5" />
               {listening ? "Stop dictation" : "Dictate note"}
             </button>
@@ -195,7 +195,7 @@ export default function NoteForm({ id, role, onSaved, onCheckHistory }: {
         </div>
         {uncertain && <button type="button" onClick={onCheckHistory} className={btnGhost}>Check recent history</button>}
         {!supported && <p className={meta}>Voice dictation isn’t available in this browser.</p>}
-        <p role="status" className="text-sm text-muted">{saved ? "Saved to this part’s history." : ""}</p>
+        <p role="status" className="min-h-6 text-sm text-muted">{saved ? "Saved to this part’s history." : ""}</p>
       </form>
     </section>
   );
