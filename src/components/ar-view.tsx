@@ -76,6 +76,10 @@ const DECODE_INTERVAL_MS = 90;
 const DECODE_WIDTH = 420;
 const LOST_AFTER_MS = 700; // the label has been out of frame this long: hide its marks, fade its node
 const REMOVE_AFTER_MS = 1600; // then drop it
+const CAMERA: MediaStreamConstraints = {
+  audio: false,
+  video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+};
 const SMOOTH_TAU_MS = 70; // per-frame easing time constant; ~3x this to settle
 const CHIP_W = 200; // compact node size, CSS px
 const CHIP_W_NARROW = 136; // when labels crowd each other: dot + name only
@@ -206,6 +210,11 @@ export default function ArView() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // iOS Safari will not start speech recognition while the page holds the
+  // camera. Once we learn that on this device, the camera is released while
+  // listening and re-opened afterwards.
+  const micNeedsCameraRef = useRef(false);
+  const cameraPausedRef = useRef(false);
   const rafRef = useRef(0);
   const lastDecodeRef = useRef(0);
   const lastFrameRef = useRef(0);
@@ -362,6 +371,33 @@ export default function ArView() {
     voiceRef.current = value;
     setVoiceState(value);
   }, []);
+  const pauseCamera = useCallback(() => {
+    const stream = streamRef.current;
+    if (!stream) return;
+    stream.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    cameraPausedRef.current = true;
+  }, []);
+  const resumeCamera = useCallback(() => {
+    if (!cameraPausedRef.current) return;
+    cameraPausedRef.current = false;
+    navigator.mediaDevices
+      .getUserMedia(CAMERA)
+      .then(async (stream) => {
+        const video = videoRef.current;
+        if (!video || cameraPausedRef.current) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        video.srcObject = stream;
+        await video.play();
+      })
+      .catch((cause) => {
+        setError(cameraError(cause));
+        setView("error");
+      });
+  }, []);
   const dropRecognition = useCallback(() => {
     const rec = recRef.current;
     if (!rec) return;
@@ -375,12 +411,13 @@ export default function ArView() {
     (id: string | null) => {
       if (voiceRef.current && voiceRef.current.id !== id) {
         dropRecognition();
+        resumeCamera();
         setVoice(null);
       }
       openRef.current = id;
       setOpenId(id);
     },
-    [dropRecognition, setVoice],
+    [dropRecognition, resumeCamera, setVoice],
   );
   const closeNode = useCallback(() => openNode(null), [openNode]);
 
@@ -391,6 +428,7 @@ export default function ArView() {
     (id: string, action: VoiceAction) => {
       if (action === "cancel") {
         dropRecognition();
+        resumeCamera();
         setVoice(null);
         return;
       }
@@ -402,6 +440,7 @@ export default function ArView() {
         const Speech = speechConstructor();
         if (!Speech) return;
         dropRecognition();
+        if (micNeedsCameraRef.current) pauseCamera();
         const rec = new Speech();
         rec.lang = "en-US";
         rec.continuous = false;
@@ -423,16 +462,33 @@ export default function ArView() {
           if (recRef.current !== rec) return;
           recRef.current = null;
           const denied = e.error === "not-allowed" || e.error === "service-not-allowed";
+          const stillListening = () => voiceRef.current?.id === id && voiceRef.current.phase === "listening";
+          // First failure with the camera open: assume the mic is held by the
+          // camera (iOS), release it, and try once more without asking.
+          if (!denied && e.error !== "no-speech" && !micNeedsCameraRef.current && streamRef.current) {
+            micNeedsCameraRef.current = true;
+            pauseCamera();
+            window.setTimeout(() => {
+              if (stillListening()) voiceAction(id, "start");
+            }, 350);
+            return;
+          }
+          resumeCamera();
           const message = denied
             ? "Microphone access was denied. Open the full card to type a note."
             : e.error === "no-speech"
               ? heardNothing
-              : "Dictation stopped early. Tap the mic to try again.";
+              : e.error === "audio-capture"
+                ? "The phone wouldn’t share the microphone. Open the full card to type a note."
+                : e.error === "network"
+                  ? "Dictation is turned off on this phone. Turn on Enable Dictation in Settings › General › Keyboard, or open the full card to type."
+                  : `Dictation stopped early (${e.error}). Tap the mic to try again.`;
           setVoice((v) => (v && v.id === id ? { ...v, phase: "error", interim: "", message } : v));
         };
         rec.onend = () => {
           if (recRef.current !== rec) return; // dropped, or already reported an error
           recRef.current = null;
+          resumeCamera();
           const text = (finalText || lastInterim).trim();
           setVoice((v) => {
             if (!v || v.id !== id || v.phase !== "listening") return v;
@@ -445,6 +501,7 @@ export default function ArView() {
           rec.start();
         } catch {
           recRef.current = null;
+          resumeCamera();
           setVoice({ id, phase: "error", text: "", interim: "", message: "Dictation isn’t available right now. Open the full card to type a note." });
         }
         return;
@@ -495,7 +552,7 @@ export default function ArView() {
         }
       })();
     },
-    [dropRecognition, role, setVoice],
+    [dropRecognition, pauseCamera, resumeCamera, role, setVoice],
   );
 
   async function start() {
@@ -511,10 +568,7 @@ export default function ArView() {
       const [{ default: jsQR }, detector, stream] = await Promise.all([
         import("jsqr"),
         loadDetector(),
-        navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
-        }),
+        navigator.mediaDevices.getUserMedia(CAMERA),
       ]);
       jsqrRef.current = jsQR;
       detectorRef.current = detector;
