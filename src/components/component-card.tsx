@@ -23,7 +23,7 @@ export default function ComponentCard({ card }: { card: Card }) {
       </header>
       <section aria-labelledby="summary-heading">
         <h2 id="summary-heading" className="text-lg font-semibold">What this part remembers</h2>
-        <p className="mt-2 whitespace-pre-wrap leading-relaxed">{card.summary}</p>
+        <p className="mt-2 whitespace-pre-wrap text-xl leading-relaxed">{card.summary}</p>
       </section>
       <section aria-labelledby="next-step-heading" className="rounded-xl border border-amber-300 bg-amber-50 p-5 text-amber-950 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
         <h2 id="next-step-heading" className="text-lg font-semibold">Next step</h2>
@@ -35,13 +35,13 @@ export default function ComponentCard({ card }: { card: Card }) {
           <p className="text-sm text-neutral-600 dark:text-neutral-300">Simulated for this demo</p>
         </div>
         {card.readings.length === 0 ? <p className="mt-3 text-neutral-600 dark:text-neutral-300">No readings available.</p> : (
-          <dl className="mt-3 divide-y divide-neutral-200 rounded-xl border border-neutral-200 px-4 dark:divide-neutral-800 dark:border-neutral-800">
+          <dl className="mt-3 grid grid-cols-3 gap-2">
             {card.readings.map((reading, index) => (
-              <div key={`${reading.label}-${index}`} className="flex flex-wrap items-center justify-between gap-3 py-4">
-                <dt className="font-medium">{reading.label}</dt>
-                <dd className="flex flex-wrap items-center gap-3">
-                  <span className="font-mono">{reading.value}</span>
-                  <span className={`rounded px-2 py-1 text-xs font-bold uppercase ${statusStyle[reading.status]}`}>{reading.status}</span>
+              <div key={`${reading.label}-${index}`} className={`min-w-0 rounded-2xl p-3 ${statusStyle[reading.status]}`}>
+                <dt className="text-sm font-medium">{reading.label}</dt>
+                <dd className="mt-2 flex flex-col gap-2">
+                  <span className="font-mono text-sm font-semibold sm:text-base">{reading.value}</span>
+                  <span className="text-xs font-bold uppercase">{reading.status}</span>
                 </dd>
               </div>
             ))}
@@ -51,9 +51,9 @@ export default function ComponentCard({ card }: { card: Card }) {
       <section aria-labelledby="events-heading">
         <h2 id="events-heading" className="text-lg font-semibold">Recent history</h2>
         {card.recent_events.length === 0 ? <p className="mt-3 text-neutral-600 dark:text-neutral-300">No events recorded for this part yet.</p> : (
-          <ol className="mt-3 divide-y divide-neutral-200 dark:divide-neutral-800">
+          <ol className="mt-4 ml-2 border-l-2 border-neutral-200 dark:border-neutral-800">
             {card.recent_events.slice(0, 5).map((event) => (
-              <li key={event.id} className="py-4">
+              <li key={event.id} className="relative pb-6 pl-5 before:absolute before:-left-[5px] before:top-1 before:h-2 before:w-2 before:rounded-full before:bg-neutral-500">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-300">{event.type} · {event.author_role}</p>
                 <p className="mt-1 font-medium leading-relaxed">{event.summary}</p>
                 <time dateTime={event.created_at} className="mt-2 block text-sm text-neutral-600 dark:text-neutral-300">

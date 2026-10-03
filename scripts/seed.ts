@@ -29,7 +29,7 @@ const events = load<Omit<MachineEvent, "id">>("events");
 
 // Delete children first. events -> components -> assets.
 for (const table of ["events", "components", "assets"]) {
-  const { error } = await db.from(table).delete().neq("id", "");
+  const { error } = await db.from(table).delete().not("id", "is", null);
   if (error) throw new Error(`wipe ${table}: ${error.message}`);
 }
 

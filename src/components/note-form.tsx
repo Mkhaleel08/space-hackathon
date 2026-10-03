@@ -37,6 +37,7 @@ export default function NoteForm({ id, role, onSaved, onCheckHistory }: {
   const [voiceError, setVoiceError] = useState("");
   const [leaveHref, setLeaveHref] = useState<string | null>(null);
   const leaveDialog = useRef<HTMLDialogElement>(null);
+  const pendingRoleChange = useRef<(() => void) | null>(null);
   const supported = useSyncExternalStore(subscribe, speechSupported, serverSpeechSupported);
   const recognition = useRef<Recognition | null>(null);
   const field = useRef<HTMLTextAreaElement>(null);
@@ -71,10 +72,17 @@ export default function NoteForm({ id, role, onSaved, onCheckHistory }: {
       event.stopPropagation();
       setLeaveHref(`${url.pathname}${url.search}${url.hash}`);
     };
+    const warnForRole = (event: Event) => {
+      event.preventDefault();
+      pendingRoleChange.current = (event as CustomEvent<{ apply: () => void }>).detail.apply;
+      setLeaveHref("#role-change");
+    };
+    window.addEventListener("machine-memory:before-role-change", warnForRole);
     window.addEventListener("beforeunload", warn);
     document.addEventListener("click", warnForLink, true);
     return () => {
       window.removeEventListener("beforeunload", warn);
+      window.removeEventListener("machine-memory:before-role-change", warnForRole);
       document.removeEventListener("click", warnForLink, true);
     };
   }, [text, saving, listening]);
@@ -160,10 +168,10 @@ export default function NoteForm({ id, role, onSaved, onCheckHistory }: {
     <section aria-labelledby="note-heading" className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-800">
       <dialog ref={leaveDialog} onCancel={event => { event.preventDefault(); setLeaveHref(null); }} aria-labelledby="leave-note-heading" aria-describedby="leave-note-description" className="m-auto w-[calc(100%-3rem)] max-w-sm rounded-xl border border-neutral-300 bg-white p-6 text-neutral-950 backdrop:bg-black/50 dark:bg-neutral-950 dark:text-neutral-100">
         <h2 id="leave-note-heading" className="text-xl font-semibold">{saving ? "Your note is saving" : "Leave this note?"}</h2>
-        <p id="leave-note-description" className="mt-3">{saving ? "Wait for the save to finish before leaving this part." : "Your unsaved text will be lost if you leave this part."}</p>
+        <p id="leave-note-description" className="mt-3">{saving ? "Wait for the save to finish before leaving this part." : "Your unsaved text will be lost if you continue."}</p>
         <div className="mt-5 flex flex-col gap-3">
           <button type="button" onClick={() => setLeaveHref(null)} className={`${buttonStyle} bg-black text-white dark:bg-white dark:text-black`}>Keep working</button>
-          <button type="button" disabled={saving} onClick={() => { if (leaveHref) { const href = leaveHref; setLeaveHref(null); router.push(href); } }} className={`${buttonStyle} border border-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800`}>Leave without saving</button>
+          <button type="button" disabled={saving} onClick={() => { if (leaveHref) { const href = leaveHref; setLeaveHref(null); if (href === "#role-change") pendingRoleChange.current?.(); else router.push(href); } }} className={`${buttonStyle} border border-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-800`}>{leaveHref === "#role-change" ? "Discard note and switch role" : "Leave without saving"}</button>
         </div>
       </dialog>
       <h2 id="note-heading" className="text-lg font-semibold">Leave a note</h2>

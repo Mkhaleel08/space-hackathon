@@ -120,7 +120,7 @@ export default function CameraScanner() {
     setComponentId(text);
     const stopped = await stopCamera();
     if (stopped && mounted.current) {
-      router.push(`/c/${encodeURIComponent(text)}`);
+      router.push(`/components/${encodeURIComponent(text)}`);
     } else {
       scanAccepted.current = false;
     }

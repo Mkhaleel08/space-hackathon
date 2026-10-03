@@ -57,8 +57,10 @@ npm run dev                  # http://localhost:3000
 Camera access needs HTTPS on a phone, so test on a Vercel preview URL (ask
 Mehran, see below) or on production rather than localhost.
 
-Database: run `supabase/schema.sql` once in the Supabase SQL editor, then
-`npm run seed` to load the demo data. **Run `npm run seed` before every demo.**
+Database: the schema is already applied and seeded on the shared Supabase
+project. Get the three Supabase values for `.env.local` from Mehran. Need to
+reset it? `npm run seed` wipes and reloads the demo data (needs the service
+role key). **Run `npm run seed` before every demo.**
 
 ## Milestones
 
