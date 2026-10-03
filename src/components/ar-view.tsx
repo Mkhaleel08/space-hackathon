@@ -22,9 +22,10 @@ import {
 
 /**
  * Live view. The camera stays open; when a QR label is in frame its four
- * corners define a plane, and three glass panels (status, next step, memory)
- * are drawn on that plane beside the label with leader lines flowing out from
- * a ring on the code. If the plane is viewed too obliquely or the panels would
+ * corners anchor three glass panels (status, next step, memory) beside the
+ * label, with leader lines flowing out from a ring on the code. The panels
+ * track the label's position and distance but stay upright on screen (see
+ * LOCK_UPRIGHT). If the plane is viewed too obliquely or the panels would
  * leave the screen, the same panels fall back to a flat stack near the code.
  *
  * Recognition is AprilTag (36h11) via js-aruco2, which reads tags at steep
@@ -54,6 +55,10 @@ const MIN_SCALE = 0.72; // on-screen px per natural px; below this the type is t
 // (text smears far from the tag), 0 = flat rotate-and-scale. A blend keeps
 // the tilt cue while staying legible.
 const PERSPECTIVE = 0.4;
+// Panels stay upright on screen ("locked to the horizon"): they follow the
+// tag's position and distance but never its roll or perspective, so the text
+// reads level however the label is taped on or the phone is held.
+const LOCK_UPRIGHT = true;
 const ROLE_KEY = "machine-memory:role";
 const ROLE_EVENT = "machine-memory:role-updated";
 const PANELS: PanelId[] = ["head", "next", "memory"];
@@ -147,13 +152,14 @@ function screenQuad(pts: Pt[]): Quad {
 function makePlacer(H: number[], q: Quad) {
   const c = center(q);
   const side = meanSide(q);
-  const ang = Math.atan2(q[1].y - q[0].y, q[1].x - q[0].x);
+  const ang = LOCK_UPRIGHT ? 0 : Math.atan2(q[1].y - q[0].y, q[1].x - q[0].x);
+  const persp = LOCK_UPRIGHT ? 0 : PERSPECTIVE;
   const cos = Math.cos(ang), sin = Math.sin(ang);
   return (p: Pt): Pt => {
     const full = apply(H, p);
     const lx = (p.x - 0.5) * side, ly = (p.y - 0.5) * side;
     const flat = { x: c.x + lx * cos - ly * sin, y: c.y + lx * sin + ly * cos };
-    return { x: flat.x + (full.x - flat.x) * PERSPECTIVE, y: flat.y + (full.y - flat.y) * PERSPECTIVE };
+    return { x: flat.x + (full.x - flat.x) * persp, y: flat.y + (full.y - flat.y) * persp };
   };
 }
 
