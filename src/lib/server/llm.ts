@@ -204,3 +204,134 @@ export async function structureNote(
     : "note";
   return { type, summary: clamp(String(out.summary), NOTE_SUMMARY_MAX) };
 }
+
+// How long the assistant may stream before the stream is cut and the client
+// shows what arrived. Longer than the card calls: the answer is read live.
+const CHAT_TIMEOUT_MS = 45_000;
+const CHAT_MAX_TOKENS = 700;
+
+/**
+ * Live-view assistant: the tech asks about the part they are looking at and
+ * the answer streams back as plain text chunks. Grounded in the same history
+ * and readings the card uses. Returns null when no provider is configured or
+ * the request fails before the first byte.
+ */
+export async function streamChat(
+  component: Component,
+  asset: Asset,
+  events: MachineEvent[],
+  readings: Reading[],
+  role: Role,
+  messages: { role: "user" | "assistant"; content: string }[],
+): Promise<ReadableStream<Uint8Array> | null> {
+  const audience =
+    role === "operator"
+      ? "an OPERATOR or driver: plain language, no jargon, say when to stop and call maintenance"
+      : "a TECHNICIAN: name parts, symptoms, tests and tools; give the checks in the order you would do them";
+  const system = [
+    "You are the maintenance assistant inside a phone app. The person is standing at a machine, pointing the camera at one part, and talking to you by voice.",
+    "Help them figure out possible fixes, what to adjust or replace, what to check first, and any bigger concern this part's history points to.",
+    `You are talking to ${audience}.`,
+    "Ground every answer in the part's history and readings below. Say plainly what the records show, what you are inferring, and what you cannot know from here.",
+    "Older flags that were never resolved still matter: raise them.",
+    "Answers are read aloud and shown on a small screen: 2 to 5 short sentences, or a short numbered list of at most 4 steps. Plain text only, no markdown, no headings, no bold.",
+    "If something is a safety risk (pressure, hot fluid, stored energy, lifting), say so first.",
+    DATA_RULE,
+  ].join(" ");
+  const context = [
+    `Asset: ${asset.name} (${asset.model}, ${asset.hours} h)`,
+    `Part: ${component.name}, located ${component.location}`,
+    "<readings>",
+    describeReadings(readings),
+    "</readings>",
+    "<history> (newest first)",
+    describeEvents(events),
+    "</history>",
+  ].join("\n");
+  const clean = messages.map((m) => ({ role: m.role, content: asData(m.content) }));
+  // The part context rides in the first user turn so the system prompt stays
+  // the same across parts (and the API can cache it); the thread follows.
+  const thread = clean.map((m, i) =>
+    i === 0 ? { ...m, content: `${context}\n\nQuestion: ${m.content}` } : m,
+  );
+
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const openaiKey = process.env.OPENAI_API_KEY;
+  try {
+    if (anthropicKey) {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: process.env.LLM_CHAT_MODEL || process.env.LLM_MODEL || "claude-haiku-4-5-20251001",
+          max_tokens: CHAT_MAX_TOKENS,
+          stream: true,
+          system,
+          messages: thread,
+        }),
+      });
+      if (!res.ok || !res.body) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
+      return sseText(res.body, (json) =>
+        json.type === "content_block_delta" && json.delta?.type === "text_delta" ? String(json.delta.text ?? "") : "",
+      );
+    }
+    if (openaiKey) {
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: process.env.LLM_CHAT_MODEL || process.env.LLM_MODEL || "gpt-4o-mini",
+          max_tokens: CHAT_MAX_TOKENS,
+          stream: true,
+          messages: [{ role: "system", content: system }, ...thread],
+        }),
+      });
+      if (!res.ok || !res.body) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
+      return sseText(res.body, (json) => String(json.choices?.[0]?.delta?.content ?? ""));
+    }
+  } catch (err) {
+    console.error("[llm chat]", err);
+  }
+  return null;
+}
+
+// Turn a provider's server-sent-event stream into a stream of plain text:
+// each `data: {...}` line goes through `pick`, which returns the text delta
+// it carries (or "" to skip it).
+function sseText(
+  body: ReadableStream<Uint8Array>,
+  pick: (json: Record<string, any>) => string, // eslint-disable-line @typescript-eslint/no-explicit-any
+): ReadableStream<Uint8Array> {
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  let buffer = "";
+  return body.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        buffer += decoder.decode(chunk, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data:")) continue;
+          const data = line.slice(5).trim();
+          if (!data || data === "[DONE]") continue;
+          try {
+            const text = pick(JSON.parse(data));
+            if (text) controller.enqueue(encoder.encode(text));
+          } catch {
+            /* keep-alive or partial line; skip */
+          }
+        }
+      },
+    }),
+  );
+}
