@@ -1,5 +1,5 @@
 /**
- * Plane math for the live view. A QR code's four corners define a plane in the
+ * Plane math for the live view. A tag's four corners define a plane in the
  * scene; a homography maps that plane to the screen, so a flat panel laid out
  * next to the code in "marker units" can be drawn with CSS matrix3d as if it
  * were lying on the same surface.

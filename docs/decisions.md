@@ -44,6 +44,12 @@ target that expands in place, so there are no buttons off the camera view.
 QR labels still work through a fallback decoder. Still no markerless
 recognition, no hand gestures, no WebXR. Print tags on matte paper.
 
+## Addendum, Oct 3 3:30 PM (Mehran)
+
+QR codes are gone. The `/scan` page, the `html5-qrcode` scanner, the `jsqr`
+fallback in the live view and the `/qr` label sheet are removed. AprilTags are
+the only labels. Home's second destination is the label printer at `/labels`.
+
 ## Addendum, Oct 3 5:00 AM (Mehran, agreed with the team)
 
 Scope reopened for one thing after the freeze: an **operator dashboard** at

@@ -42,8 +42,7 @@ import {
  * leave the screen, the same panels fall back to a flat stack near the code.
  *
  * Recognition is AprilTag (36h11) via js-aruco2, which reads tags at steep
- * angles and small sizes. jsQR runs as a fallback so the older QR labels
- * keep working. Both report corner points, which the plane math needs.
+ * angles and small sizes and reports corner points, which the plane math needs.
  */
 
 /** One tracked label. `target` is the latest detection, `display` glides toward it every frame. */
@@ -239,7 +238,6 @@ export default function ArView() {
   const dirtyRef = useRef(false);
   const cacheRef = useRef(new Map<string, Card>());
   const inflightRef = useRef(new Set<string>());
-  const jsqrRef = useRef<typeof import("jsqr").default | null>(null);
   const detectorRef = useRef<ArucoDetector | null>(null);
   const tickCountRef = useRef(0);
   const startedRef = useRef(false);
@@ -769,12 +767,7 @@ export default function ArView() {
       })
       .catch(() => { /* keep the static map */ });
     try {
-      const [{ default: jsQR }, detector, stream] = await Promise.all([
-        import("jsqr"),
-        loadDetector(),
-        navigator.mediaDevices.getUserMedia(CAMERA),
-      ]);
-      jsqrRef.current = jsQR;
+      const [detector, stream] = await Promise.all([loadDetector(), navigator.mediaDevices.getUserMedia(CAMERA)]);
       detectorRef.current = detector;
       streamRef.current = stream;
       const video = videoRef.current;
@@ -800,8 +793,7 @@ export default function ArView() {
   /** Read every label in the frame and update its track's target corners. */
   function decode(now: number) {
     const video = videoRef.current;
-    const jsQR = jsqrRef.current;
-    if (!video || !jsQR || video.readyState < 2 || !video.videoWidth) return;
+    if (!video || video.readyState < 2 || !video.videoWidth) return;
 
     const vw = video.videoWidth;
     const vh = video.videoHeight;
@@ -828,21 +820,12 @@ export default function ArView() {
     const img = ctx.getImageData(0, 0, cw, ch);
     tickCountRef.current += 1;
 
-    // AprilTags first, all of them. Fall back to QR every third frame so old
-    // labels still work (jsQR reads one code per frame).
+    // Every tag in the frame, mapped to its part.
     const seen = new Map<string, Pt[]>();
     const markers = detectorRef.current?.detect(img) ?? [];
     for (const m of markers) {
       const cid = tagMapRef.current[m.id] ?? null;
       if (cid && m.corners.length === 4 && !seen.has(cid)) seen.set(cid, m.corners);
-    }
-    if (seen.size === 0 && tickCountRef.current % 3 === 0) {
-      const code = jsQR(img.data, cw, ch, { inversionAttempts: "dontInvert" });
-      const text = code?.data.trim();
-      if (code && text) {
-        const { topLeftCorner: a, topRightCorner: b, bottomRightCorner: c, bottomLeftCorner: d } = code.location;
-        seen.set(text, [a, b, c, d]);
-      }
     }
     if (seen.size === 0) return;
 
@@ -1193,9 +1176,6 @@ export default function ArView() {
           >
             {view === "opening" ? "Opening camera…" : view === "error" ? "Try again" : "Start live view"}
           </button>
-          <Link href="/scan" className="flex min-h-11 items-center text-sm text-neutral-300 underline underline-offset-4">
-            Use the simple scanner instead
-          </Link>
         </div>
       )}
 

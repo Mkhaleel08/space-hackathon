@@ -3,9 +3,9 @@
 > A first-week technician can inspect a machine like a 20-year veteran, because the machine remembers.
 
 Hack to the Future, Krasan prompt + Caterpillar track. Phone web app: point the
-camera at a QR code on a component, get a card with that part's history, live
-readings, and next step. Leave a spoken note, and the next person who scans it
-sees it. The write-back loop is the demo.
+camera at an AprilTag on a component, get a card with that part's history, live
+readings, and next step. Leave a spoken note, and the next person who points at
+it sees it. The write-back loop is the demo.
 
 Full plan: [`docs/game-plan.md`](docs/game-plan.md). Locked decisions:
 [`docs/decisions.md`](docs/decisions.md). Frontend/backend seam:
@@ -15,7 +15,7 @@ Full plan: [`docs/game-plan.md`](docs/game-plan.md). Locked decisions:
 ## Stack
 
 Next.js 16 (App Router) on Vercel · Supabase Postgres · AprilTag markers via
-`js-aruco2` (QR via `html5-qrcode`/`jsqr` as fallback) · Anthropic API · browser
+`js-aruco2` · Anthropic API · browser
 speech recognition with typed fallback.
 
 ## Who owns what
@@ -24,7 +24,7 @@ speech recognition with typed fallback.
 |---|---|---|
 | Vineeth | frontend | `src/app/` pages, `src/components/`, `src/hooks/` |
 | Neeraj | backend | `src/app/api/`, `src/lib/server/`, `supabase/` |
-| Mehran | product | `data/seed/`, `scripts/`, `docs/`, `public/qr/`, Devpost, pitch, phone testing, frontend overflow |
+| Mehran | product | `data/seed/`, `scripts/`, `docs/`, `public/tags/`, Devpost, pitch, phone testing, frontend overflow |
 
 **Shared, announce before editing:** `src/lib/types.ts`, `docs/api-contract.md`, `package.json`.
 
@@ -66,13 +66,13 @@ role key). **Run `npm run seed` before every demo.**
 ## Labels
 
 Print `/tags/print.html` (AprilTags, matte paper) and tape one on each part.
-`/qr/print.html` has the older QR labels; both work in the live view at `/ar`.
+AprilTags are the only labels; the live view at `/ar` reads them.
 
 ## Milestones
 
 1. Camera opens on a real phone from the deployed URL
-2. Scanning a QR code shows a hardcoded card
+2. Pointing at a tag shows a hardcoded card
 3. Card pulls real rows from Supabase
-4. Write-back: add a note, rescan, see it appear
+4. Write-back: add a note, point again, see it appear
 5. Role toggle changes the card wording
 6. Checklist crosses itself off (cut if behind)

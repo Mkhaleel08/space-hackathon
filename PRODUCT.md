@@ -6,7 +6,7 @@
 
 **The mechanism.** Persistent per-part event history in Postgres, written back from the field in plain speech, summarized by an LLM in the reader's own vocabulary (operator vs. technician). The demo moment is the write-back loop: save a note, the next card changes.
 
-**Surfaces.** Home → Live view (camera, AprilTags) or Scan (QR fallback) → Part card (status, next step, memory, readings, history, add a note) → Operator dashboard (every asset and part, recent activity, delete a note behind a shared PIN, AprilTag manager and label printing).
+**Surfaces.** Home → Live view (camera, AprilTags) → Part card (status, next step, memory, readings, history, add a note) → Operator dashboard (every asset and part, recent activity, delete a note behind a shared PIN, AprilTag manager and label printing).
 
 **Constraints.** Built in 12 hours by three people for a Caterpillar-track hackathon (Oct 2–3, 2026). Readings are simulated and say so. No accounts; a shared operator PIN gates deletes. Everything must work on a phone over HTTPS, mobile-first, 44px tap targets, no hover-only interactions. Scope is locked in `docs/decisions.md`.
 
