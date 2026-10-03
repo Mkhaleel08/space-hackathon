@@ -11,79 +11,20 @@ const base: SVGProps<SVGSVGElement> = {
 };
 
 export function ArrowRight({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg {...base} className={className}>
-      <path d="M4 10h12M11 5l5 5-5 5" />
-    </svg>
-  );
+  return <svg {...base} className={className}><path d="M4 10h12M11 5l5 5-5 5" /></svg>;
 }
 export function ArrowLeft({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg {...base} className={className}>
-      <path d="M16 10H4M9 5l-5 5 5 5" />
-    </svg>
-  );
+  return <svg {...base} className={className}><path d="M16 10H4M9 5l-5 5 5 5" /></svg>;
 }
 export function ChevronDown({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg {...base} className={className}>
-      <path d="M5 8l5 5 5-5" />
-    </svg>
-  );
+  return <svg {...base} className={className}><path d="M5 8l5 5 5-5" /></svg>;
 }
 export function Mic({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg {...base} className={className}>
-      <rect x="7" y="2.5" width="6" height="10" rx="3" />
-      <path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5" />
-    </svg>
-  );
+  return <svg {...base} className={className}><rect x="7" y="2.5" width="6" height="10" rx="3" /><path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v2.5" /></svg>;
 }
 export function Close({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg {...base} className={className}>
-      <path d="M5 5l10 10M15 5L5 15" />
-    </svg>
-  );
+  return <svg {...base} className={className}><path d="M5 5l10 10M15 5L5 15" /></svg>;
 }
 export function Camera({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg {...base} className={className}>
-      <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h2l1.2-1.8h4.6L13.5 6h2A1.5 1.5 0 0 1 17 7.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 14.5z" />
-      <circle cx="10" cy="10.5" r="2.75" />
-    </svg>
-  );
-}
-
-export function Grid({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg {...base} className={className}>
-      <rect x="3" y="3" width="5" height="5" rx="1" />
-      <rect x="12" y="3" width="5" height="5" rx="1" />
-      <rect x="3" y="12" width="5" height="5" rx="1" />
-      <rect x="12" y="12" width="5" height="5" rx="1" />
-    </svg>
-  );
-}
-export function Scan({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg {...base} className={className}>
-      <path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4M6 10h8" />
-    </svg>
-  );
-}
-export function Search({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg {...base} className={className}>
-      <circle cx="8.5" cy="8.5" r="5.5" />
-      <path d="m13 13 4 4" />
-    </svg>
-  );
-}
-export function Refresh({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg {...base} className={className}>
-      <path d="M16 7A6.5 6.5 0 1 0 16 13M16 3v4h-4" />
-    </svg>
-  );
+  return <svg {...base} className={className}><path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h2l1.2-1.8h4.6L13.5 6h2A1.5 1.5 0 0 1 17 7.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 14.5z" /><circle cx="10" cy="10.5" r="2.75" /></svg>;
 }

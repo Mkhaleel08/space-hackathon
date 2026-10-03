@@ -10,4 +10,4 @@
 
 **Constraints.** Built in 12 hours by three people for a Caterpillar-track hackathon (Oct 2–3, 2026). Readings are simulated and say so. No accounts; a shared operator PIN gates deletes. Everything must work on a phone over HTTPS, mobile-first, 44px tap targets, no hover-only interactions. Scope is locked in `docs/decisions.md`.
 
-**Brand commitments.** Mode: Operate. Restrained cool neutrals, readable working panels, and Cat yellow `#FFCD11` for the primary action and next-step emphasis. Status uses a colored mark and a word, with matching asset borders. Geist, clear mobile hierarchy, and accessible controls. The current look is recorded in `DESIGN.md`; the older `.impeccable` export predates this redesign.
+**Brand commitments.** Mode: Operate. Restrained palette: neutrals plus one accent, Cat yellow `#FFCD11`, spent only on the page's primary action, the active role, live dictation and "just saved" flags. Status is a coloured dot and a word, never a fill. 1px rules, not cards. Geist. The look is recorded in `DESIGN.md`.

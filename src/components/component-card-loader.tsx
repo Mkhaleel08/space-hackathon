@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft } from "./icons";
-import s from "./workspace.module.css";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { ComponentCard as Card, MachineEvent, Role } from "@/lib/types";
 import ComponentCard from "./component-card";
@@ -11,7 +9,7 @@ import { btnPrimary, h1, textLink } from "./ui";
 
 type Result = { kind: "loading" } | { kind: "ready"; card: Card } | { kind: "missing" } | { kind: "error" };
 
-export default function ComponentCardLoader({ id, role, roleControl }: { id: string; role: Role; roleControl?: ReactNode }) {
+export default function ComponentCardLoader({ id, role }: { id: string; role: Role }) {
   const [result, setResult] = useState<Result>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
@@ -87,12 +85,12 @@ export default function ComponentCardLoader({ id, role, roleControl }: { id: str
 
   if (result.kind === "ready") return (
     <>
-      <div className={s.detailToolbar}><Link href="/dashboard" className="inline-flex min-h-11 items-center gap-2 text-sm text-muted hover:text-foreground"><ArrowLeft />All assets</Link>{roleControl}</div>
-      <div className={`${refreshing || refreshError ? "mb-5" : ""} text-sm text-muted`} aria-live="polite">
+      <div className="min-h-6 text-sm text-muted" aria-live="polite">
         {refreshing && <p className="flex items-center gap-2"><span aria-hidden="true" className="h-2 w-2 animate-pulse rounded-full bg-accent" />Re-reading the history and next step…</p>}
         {refreshError && <p role="alert" className="text-alert">Couldn’t refresh the card. The details below may be out of date. <button type="button" onClick={refreshCard} className={`${textLink} text-foreground`}>Refresh card</button></p>}
       </div>
-      <ComponentCard card={result.card} savedEventId={savedEventId} noteForm={<NoteForm id={id} role={role} onSaved={noteSaved} onCheckHistory={refreshCard} />} />
+      <ComponentCard card={result.card} savedEventId={savedEventId} />
+      <NoteForm id={id} role={role} onSaved={noteSaved} onCheckHistory={refreshCard} />
     </>
   );
   if (result.kind === "loading") return (
