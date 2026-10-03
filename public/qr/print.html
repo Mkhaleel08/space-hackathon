@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Machine Memory QR labels</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 24px; background: #fff; color: #111; }
+    h1 { font-size: 18px; margin: 0 0 16px; }
+    .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+    .label { border: 2px dashed #999; padding: 16px; text-align: center; page-break-inside: avoid; }
+    .label img { width: 100%; max-width: 320px; height: auto; }
+    .label h2 { font-size: 20px; margin: 8px 0 4px; }
+    .label p { margin: 0; color: #555; font-size: 14px; }
+    code { font-size: 12px; color: #888; }
+    @media print { body { padding: 0; } h1 { display: none; } }
+  </style>
+</head>
+<body>
+  <h1>Print this page, cut along the dashed lines, tape each label on the prop. Served at /qr/print.html.</h1>
+  <div class="grid">
+    <div class="label"><img src="hyd-pump.png" alt="QR hyd-pump" /><h2>Main hydraulic pump</h2><p>Right side, behind access panel</p><code>hyd-pump</code></div>
+    <div class="label"><img src="boom-cyl.png" alt="QR boom-cyl" /><h2>Boom cylinder</h2><p>Boom, left side</p><code>boom-cyl</code></div>
+    <div class="label"><img src="engine-air.png" alt="QR engine-air" /><h2>Engine air filter</h2><p>Engine bay, top</p><code>engine-air</code></div>
+    <div class="label"><img src="track-left.png" alt="QR track-left" /><h2>Left track and final drive</h2><p>Undercarriage, left</p><code>track-left</code></div>
+  </div>
+</body>
+</html>

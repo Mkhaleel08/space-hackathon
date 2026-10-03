@@ -2,9 +2,161 @@
   {
     "component_id": "hyd-pump",
     "type": "inspection",
+    "summary": "500-hour service: hydraulic oil sampled, pump pressure 3,150 psi, within spec",
+    "detail": "Oil sample sent to lab. Pressure test at full RPM read 3,150 psi against a 3,000-3,300 spec. No weeping at the case drain.",
+    "author_role": "technician",
+    "created_at": "2025-05-06T13:40:00Z"
+  },
+  {
+    "component_id": "hyd-pump",
+    "type": "note",
+    "summary": "Oil sample came back with elevated silicon, flagged to watch for dirt ingress",
+    "detail": "Lab report: silicon 22 ppm (baseline 8). Suggests dust getting past a breather or seal. No action yet, re-sample at next service.",
+    "author_role": "technician",
+    "created_at": "2025-05-14T09:05:00Z"
+  },
+  {
+    "component_id": "hyd-pump",
+    "type": "inspection",
     "summary": "Daily walkaround, no issues",
     "detail": null,
     "author_role": "operator",
-    "created_at": "2025-04-14T07:10:00Z"
+    "created_at": "2025-08-04T06:55:00Z"
+  },
+  {
+    "component_id": "hyd-pump",
+    "type": "note",
+    "summary": "Operator reports boom feels slow to lift when cold in the mornings",
+    "detail": "Takes a few minutes of warm-up before the boom lifts at normal speed. Fine once the machine is warm. Didn't notice any leaks.",
+    "author_role": "operator",
+    "created_at": "2025-11-18T07:20:00Z"
+  },
+  {
+    "component_id": "hyd-pump",
+    "type": "inspection",
+    "summary": "1,000-hour service: pressure still in spec, light oil film found on pump housing",
+    "detail": "Pressure 3,080 psi. Wiped a light film off the housing near the drive-end seal. Cleaned and marked with chalk to see if it comes back. Oil re-sampled.",
+    "author_role": "technician",
+    "created_at": "2026-01-22T14:15:00Z"
+  },
+  {
+    "component_id": "hyd-pump",
+    "type": "fault",
+    "summary": "Fresh hydraulic oil found pooling under the right access panel during walkaround",
+    "detail": "About a palm-sized puddle on the belly pan under the pump. Oil looks clean, not burnt. Machine still runs normally. Tagged for the shop.",
+    "author_role": "operator",
+    "created_at": "2026-06-09T06:40:00Z"
+  },
+  {
+    "component_id": "hyd-pump",
+    "type": "repair",
+    "summary": "Replaced pump drive-end shaft seal and case drain O-ring, leak stopped",
+    "detail": "Seal lip was hardened and grooved. Case drain O-ring also flattened. Replaced both, topped off 2 liters of oil, ran 20 minutes at temp with no weep. Root cause likely the dust ingress flagged last spring; recommend checking the tank breather.",
+    "author_role": "technician",
+    "created_at": "2026-06-10T16:30:00Z"
+  },
+  {
+    "component_id": "hyd-pump",
+    "type": "inspection",
+    "summary": "Follow-up check one week after seal replacement, housing dry",
+    "detail": "Chalk mark intact, no new film. Pressure 3,120 psi.",
+    "author_role": "technician",
+    "created_at": "2026-06-17T11:00:00Z"
+  },
+  {
+    "component_id": "hyd-pump",
+    "type": "note",
+    "summary": "Faint film reappearing at the drive-end seal, far earlier than expected",
+    "detail": "Spotted a thin wet ring at the seal during the walkaround, about 3 months after the replacement. Not dripping. Hours since repair: roughly 400. Could be the same contamination issue; the breather still hasn't been checked.",
+    "author_role": "operator",
+    "created_at": "2026-09-28T07:05:00Z"
+  },
+  {
+    "component_id": "boom-cyl",
+    "type": "inspection",
+    "summary": "Rod and gland checked at 500-hour service, no scoring, no leaks",
+    "detail": null,
+    "author_role": "technician",
+    "created_at": "2025-05-06T14:10:00Z"
+  },
+  {
+    "component_id": "boom-cyl",
+    "type": "fault",
+    "summary": "Boom drifts down about 2 inches over 10 minutes when parked with the bucket raised",
+    "detail": "Noticed during lunch break with the bucket held up. Slow steady drift, no visible leaks on the rod.",
+    "author_role": "operator",
+    "created_at": "2025-10-02T12:30:00Z"
+  },
+  {
+    "component_id": "boom-cyl",
+    "type": "repair",
+    "summary": "Resealed boom cylinder piston, drift test now passes",
+    "detail": "Internal bypass across the piston seal. Replaced the seal kit, checked the bore for scoring (none). Drift under 1/4 inch over 10 minutes after repair.",
+    "author_role": "technician",
+    "created_at": "2025-10-07T17:45:00Z"
+  },
+  {
+    "component_id": "boom-cyl",
+    "type": "inspection",
+    "summary": "Daily walkaround, rod clean, no drift noticed",
+    "detail": null,
+    "author_role": "operator",
+    "created_at": "2026-08-12T06:50:00Z"
+  },
+  {
+    "component_id": "engine-air",
+    "type": "repair",
+    "summary": "Primary air filter replaced at 500-hour service",
+    "detail": "Restriction indicator was in the yellow. Secondary filter inspected, left in place.",
+    "author_role": "technician",
+    "created_at": "2025-05-06T12:20:00Z"
+  },
+  {
+    "component_id": "engine-air",
+    "type": "note",
+    "summary": "Filter clogging faster than usual on the dusty north pit, restriction indicator tripping early",
+    "detail": "Hit the red on the indicator about 300 hours after the last change. Blew it out with shop air to finish the week. Site is very dusty this summer.",
+    "author_role": "operator",
+    "created_at": "2025-08-21T15:10:00Z"
+  },
+  {
+    "component_id": "engine-air",
+    "type": "repair",
+    "summary": "Primary and secondary air filters replaced, interval shortened to 250 hours for this site",
+    "detail": "Both filters heavy with fine dust. Shop-air cleaning had torn a pleat on the primary. Reset indicator. Told the operator not to blow filters out again, replace instead.",
+    "author_role": "technician",
+    "created_at": "2025-08-25T10:30:00Z"
+  },
+  {
+    "component_id": "engine-air",
+    "type": "inspection",
+    "summary": "Restriction indicator checked at walkaround, in the green",
+    "detail": null,
+    "author_role": "operator",
+    "created_at": "2026-09-15T06:45:00Z"
+  },
+  {
+    "component_id": "track-left",
+    "type": "inspection",
+    "summary": "Track tension measured and adjusted, sag was 2 inches over spec",
+    "detail": "Grease added at the adjuster to bring sag back to spec. Sprocket teeth starting to hook, roughly 50 percent worn.",
+    "author_role": "technician",
+    "created_at": "2025-07-15T15:00:00Z"
+  },
+  {
+    "component_id": "track-left",
+    "type": "fault",
+    "summary": "Left final drive weeping gear oil at the sprocket hub",
+    "detail": "Dark oil streak down the inside of the sprocket after a shift. Not a drip yet.",
+    "author_role": "operator",
+    "created_at": "2026-03-03T16:20:00Z"
+  },
+  {
+    "component_id": "track-left",
+    "type": "repair",
+    "summary": "Replaced left final drive floating seal (duo-cone), refilled gear oil",
+    "detail": "Seal face had a small chip from a trapped rock. Drained and refilled 4.5 liters of 80W-90. No metal on the magnetic plug.",
+    "author_role": "technician",
+    "created_at": "2026-03-05T18:00:00Z"
   }
 ]
