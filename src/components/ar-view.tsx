@@ -59,7 +59,7 @@ type VoiceAction = "start" | "stop" | "save" | "cancel";
 
 const noSubscribe = () => () => {};
 const speechOnServer = () => false;
-const MIC_FAB = 56; // the Ask button beside the open card, CSS px
+const MIC_FAB = 48; // the Ask button beside the open card, CSS px
 
 const DECODE_INTERVAL_MS = 90;
 const DECODE_WIDTH = 420;
@@ -83,7 +83,7 @@ const PANEL_W = 300; // natural CSS px; the homography scales it to the scene
 const PANEL_GAP_U = 0.14; // marker units between panels
 const SIDE_GAP_U = 0.4; // marker units between the code and the panel column
 const MIN_READABILITY = 0.55;
-const MIN_SCALE = 0.72; // on-screen px per natural px; below this the type is too small
+const MIN_SCALE = 0.58; // on-screen px per natural px; below this the type is too small
 // How much true perspective the panels keep. 1 = lie exactly on the plane
 // (text smears far from the tag), 0 = flat rotate-and-scale. A blend keeps
 // the tilt cue while staying legible.
@@ -268,7 +268,7 @@ export default function ArView() {
   // Landscape is the intended grip: the camera frame is wide, the panels have
   // room beside the label, and a tag reads at the same size as upright.
   const landscape = size.w > size.h;
-  const [heights, setHeights] = useState<Record<PanelId, number>>({ head: 96, next: 110, memory: 150 });
+  const [heights, setHeights] = useState<Record<PanelId, number>>({ head: 86, next: 96, memory: 132 });
   // Expanded panels are remembered per open part, so switching to another
   // label starts collapsed without an effect to reset anything.
   const collapsed: Record<PanelId, boolean> = { head: false, next: false, memory: false };
@@ -685,6 +685,37 @@ export default function ArView() {
     [dropRecognition, pauseCamera, resumeCamera, role, setVoice],
   );
 
+  // Fullscreen hides the browser chrome so the whole camera frame and the
+  // card fit. Browsers only grant it from a tap, so it is tried when the
+  // camera opens (the Start button) and again on the first tap in the view
+  // when the camera auto-started. iPhone Safari has no element fullscreen;
+  // there the orientation lock also stays refused and the hint asks instead.
+  async function enterFullscreen() {
+    const el = containerRef.current as (HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> }) | null;
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    if (!el || document.fullscreenElement || doc.webkitFullscreenElement) return;
+    try {
+      if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: "hide" });
+      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+      else return;
+    } catch {
+      return; // not from a gesture, or unsupported
+    }
+    (screen.orientation as unknown as { lock?: (o: string) => Promise<void> }).lock?.("landscape").catch(() => {
+      /* non-fullscreen or iOS refuses; the hint below asks instead */
+    });
+  }
+  useEffect(() => {
+    if (view !== "running") return;
+    const el = containerRef.current;
+    if (!el) return;
+    const onTap = () => {
+      void enterFullscreen();
+    };
+    el.addEventListener("pointerdown", onTap, { once: true, passive: true });
+    return () => el.removeEventListener("pointerdown", onTap);
+  }, [view]);
+
   async function start() {
     if (view === "opening" || view === "running") return;
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
@@ -718,9 +749,7 @@ export default function ArView() {
       hwBaseRef.current = null;
       void applyZoom(zoomLevelRef.current);
       setView("running");
-      (screen.orientation as unknown as { lock?: (o: string) => Promise<void> }).lock?.("landscape").catch(() => {
-        /* iOS and non-fullscreen Android refuse; the hint below asks instead */
-      });
+      void enterFullscreen();
       lastFrameRef.current = 0;
       rafRef.current = requestAnimationFrame(tick);
     } catch (cause) {
@@ -850,9 +879,13 @@ export default function ArView() {
   let flatX = GUTTER;
   let flatY = size.h - GUTTER;
   let flatBelow = true;
-  const flatW = Math.min(size.w - GUTTER * 2, PANEL_W); // same width as world mode, so heights match
-  const flatH = heights.head + heights.next + heights.memory + 16;
   const TOP_BAR = 64;
+  // The flat stack is drawn at natural size and shrunk as a whole when the
+  // three panels would not fit the screen height (a phone in landscape).
+  const flatNaturalH = heights.head + heights.next + heights.memory + 16;
+  const flatScale = size.h ? Math.min(1, Math.max(MIN_SCALE, (size.h - TOP_BAR - GUTTER * 2) / flatNaturalH)) : 1;
+  const flatW = Math.min(size.w - GUTTER * 2, PANEL_W) * flatScale; // on-screen width
+  const flatH = flatNaturalH * flatScale; // on-screen height
 
   if (tracked && open) {
     const q = open.quad;
@@ -868,7 +901,7 @@ export default function ArView() {
     // On-screen px per natural panel px. Start from a comfortable size, then
     // shrink to the room available in the chosen direction, never below the
     // point where the type stops being readable.
-    const idealScale = Math.min(Math.max(side * 2.6, 230), Math.min(380, size.w - GUTTER * 2)) / PANEL_W;
+    const idealScale = Math.min(Math.max(side * 2.2, 200), Math.min(300, size.w - GUTTER * 2)) / PANEL_W;
     const fitScale = (roomPx: number) => Math.min(idealScale, (roomPx - gapPx) / sumH);
     // Candidate placements, in order of preference: below, above, right, left.
     // Each gives the column's scale and its origin in marker units.
@@ -1194,7 +1227,7 @@ export default function ArView() {
           role="region"
           aria-label="Part card"
           className="absolute left-0 top-0 z-10 flex flex-col gap-2 will-change-transform"
-          style={{ width: flatW, transform: `translate3d(${flatX}px, ${flatY}px, 0)` }}
+          style={{ width: flatW / flatScale, transform: `translate3d(${flatX}px, ${flatY}px, 0) scale(${flatScale})`, transformOrigin: "top left" }}
         >
           {panelNodes}
         </div>
@@ -1423,11 +1456,11 @@ const Panel = memo(function Panel({
     return (
       <div ref={setRef} style={glassStyle} className={`${glass} cursor-pointer overflow-hidden select-none`} {...tappable}>
         <div className={`h-1 w-full ${stripe[status]}`} />
-        <div className="p-3.5">
+        <div className="p-3">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               {label(card.asset.name)}
-              <h2 className="mt-0.5 line-clamp-2 text-[19px] font-semibold leading-tight">{card.component.name}</h2>
+              <h2 className="mt-0.5 line-clamp-2 text-[17px] font-semibold leading-tight">{card.component.name}</h2>
               <p className="truncate text-xs text-white/70">{card.component.location}</p>
             </div>
             <div className="flex shrink-0 items-start gap-1.5">
@@ -1472,9 +1505,9 @@ const Panel = memo(function Panel({
 
   if (id === "next") {
     return (
-      <div ref={setRef} style={glassStyle} className={`${glass} cursor-pointer p-3.5 select-none`} {...tappable}>
+      <div ref={setRef} style={glassStyle} className={`${glass} cursor-pointer p-3 select-none`} {...tappable}>
         <div className="flex items-center">{label("Next step", "text-amber-200/90")}{more}</div>
-        <p className={`mt-1 text-[16px] font-semibold leading-snug ${expanded ? "" : "line-clamp-3"}`}>{card.next_step}</p>
+        <p className={`mt-1 text-[15px] font-semibold leading-snug ${expanded ? "" : "line-clamp-3"}`}>{card.next_step}</p>
         {expanded && (
           <p className="mt-2 text-[12px] text-white/60">Written for the {card.role} from this part’s history. Switch roles above to change the wording.</p>
         )}
@@ -1483,9 +1516,9 @@ const Panel = memo(function Panel({
   }
 
   return (
-    <div ref={setRef} style={glassStyle} className={`${glass} cursor-pointer p-3.5 select-none`} {...tappable}>
+    <div ref={setRef} style={glassStyle} className={`${glass} cursor-pointer p-3 select-none`} {...tappable}>
       <div className="flex items-center">{label("What this part remembers")}{more}</div>
-      <p className={`mt-1 text-[14px] leading-snug text-white/85 ${expanded ? "" : "line-clamp-2"}`}>{card.summary}</p>
+      <p className={`mt-1 text-[13px] leading-snug text-white/85 ${expanded ? "" : "line-clamp-2"}`}>{card.summary}</p>
       {expanded && card.recent_events.length > 0 && (
         <ol className="mt-3 border-l border-white/20" aria-label="Recent history">
           {card.recent_events.slice(0, 4).map((e) => (
