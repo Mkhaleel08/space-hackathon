@@ -28,7 +28,10 @@ import {
  * Live view. The camera stays open and every label in frame gets a node: a
  * dot on the label joined by a line to a compact chip (name + status). Tap a
  * chip and it opens into three glass panels (status, next step, memory)
- * beside its label; nothing opens until it is tapped. From the memory panel
+ * beside its label; nothing opens until it is tapped. The open card is
+ * locked where it opened: it does not follow the label and does not close
+ * when the label leaves the frame, so the phone can be lowered to read it.
+ * Only the X on the card closes it. From the memory panel
  * you can speak a note: the browser transcribes it, the backend's model turns
  * it into a structured event, and the card re-reads its memory. A mic button
  * beside the card opens the part assistant (part-chat.tsx), a chat drawer
@@ -256,6 +259,9 @@ export default function ArView() {
   const [digitalZoom, setDigitalZoom] = useState(1);
   const [anchors, setAnchors] = useState<Anchor[]>([]);
   const [openId, setOpenId] = useState<string | null>(null);
+  // Where the open label was on screen when it was tapped. The card is laid
+  // out from this and never moves again until the card is closed.
+  const [lockedQuad, setLockedQuad] = useState<Quad | null>(null);
   const role = useSyncExternalStore(subscribeRole, readStoredRole, serverRole);
   const [cards, setCards] = useState<Record<string, CardState>>({});
   const [voiceState, setVoiceState] = useState<VoiceState | null>(null);
@@ -391,8 +397,8 @@ export default function ArView() {
     }
   }, [visibleIds, role]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Which node is open: only a tap opens one, nothing opens by itself. A node
-  // whose label has gone closes. Decided in the frame loop, mirrored in openRef.
+  // Which node is open: only a tap opens one, nothing opens by itself, and
+  // only the card's X closes it. Mirrored in openRef for the frame loop.
   // Voice state is mirrored in voiceRef so the frame loop and recognition
   // callbacks can read it without going through React.
   const setVoice = useCallback((next: VoiceState | null | ((prev: VoiceState | null) => VoiceState | null)) => {
@@ -525,6 +531,7 @@ export default function ArView() {
       }
       openRef.current = id;
       setOpenId(id);
+      setLockedQuad(id ? tracksRef.current.get(id)?.display ?? null : null);
     },
     [dropRecognition, resumeCamera, setVoice],
   );
@@ -812,8 +819,7 @@ export default function ArView() {
     const next: Anchor[] = [];
     for (const [id, t] of tracksRef.current) {
       const age = now - t.seenAt;
-      // A part with a spoken note or the assistant open stays (docked, as lost) until that is done.
-      if (age > REMOVE_AFTER_MS && voiceRef.current?.id !== id && chatRef.current !== id) {
+      if (age > REMOVE_AFTER_MS) {
         tracksRef.current.delete(id);
         changed = true;
         continue;
@@ -830,8 +836,6 @@ export default function ArView() {
     }
     if (!changed) return;
     next.sort((x, y) => x.firstSeen - y.firstSeen);
-    const current = openRef.current;
-    if (current && !next.some((x) => x.id === current)) openNode(null);
     setAnchors(next);
   }
 
@@ -841,8 +845,12 @@ export default function ArView() {
   // square, y down. Choose a column width so panels read at a sane size on
   // screen whatever the label's distance, then try to lay the column beside
   // it. Fall back to a flat stack when the column would not fit.
-  const open = openId ? anchors.find((x) => x.id === openId) ?? null : null;
-  const tracked = Boolean(open && size.w && !open.lost);
+  // The open card is laid out from the quad captured at the tap, so it holds
+  // still. The live detection of the same label (if it is still in frame)
+  // only drives the dot and the line, which show where the label is now.
+  const open = openId && lockedQuad ? { id: openId, quad: lockedQuad } : null;
+  const liveOpen = open ? anchors.find((x) => x.id === open.id && !x.lost) ?? null : null;
+  const tracked = Boolean(open && size.w);
   let mode: "world" | "flat" = "flat";
   let panelTransforms: Partial<Record<PanelId, string>> = {};
   let panelQuads: Partial<Record<PanelId, Quad>> = {};
@@ -858,7 +866,7 @@ export default function ArView() {
     const q = open.quad;
     const side = Math.max(meanSide(q), 1);
     const c = center(q);
-    dot = c;
+    dot = liveOpen ? center(liveOpen.quad) : null;
 
     const H = homography(rectQuad(0, 0, 1, 1), q);
     const ys = q.map((p) => p.y);
@@ -993,7 +1001,6 @@ export default function ArView() {
       : null;
 
   const openState: CardState = open ? cardFor(open.id) : { kind: "loading" };
-  const openLost = open?.lost ?? false;
   const openVoice = open && voiceState?.id === open.id ? voiceState : null;
   const panelNodes = PANELS.map((id) => (
     <Panel
@@ -1002,7 +1009,6 @@ export default function ArView() {
       setRef={bindPanel[id]}
       state={openState}
       partId={open?.id ?? ""}
-      lost={openLost}
       expanded={expanded[id]}
       onToggle={togglePanel}
       onClose={closeNode}
@@ -1043,7 +1049,7 @@ export default function ArView() {
       {/* Label outlines, a dot on each label, and lines to the nodes */}
       {running && anchors.length > 0 && size.w > 0 && (
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${size.w} ${size.h}`} aria-hidden="true">
-          {(open ? [open] : anchors.filter((a) => !a.lost)).map((a) => (
+          {(open ? (liveOpen ? [liveOpen] : []) : anchors.filter((a) => !a.lost)).map((a) => (
             <polygon
               key={a.id}
               points={a.quad.map((p) => `${p.x},${p.y}`).join(" ")}
@@ -1065,7 +1071,7 @@ export default function ArView() {
             );
           })}
           {open && dot && (
-            <g className={`transition-opacity duration-300 ${open.lost ? "opacity-0" : "opacity-100"}`}>
+            <g className="transition-opacity duration-300">
               {mode === "world" &&
                 PANELS.map((id) => {
                   const q = panelQuads[id];
@@ -1165,7 +1171,7 @@ export default function ArView() {
       )}
 
       {/* Hint while nothing is pinned */}
-      {running && anchors.length === 0 && (
+      {running && anchors.length === 0 && !open && (
         <p role="status" className="pointer-events-none absolute inset-x-0 bottom-[max(2rem,env(safe-area-inset-bottom))] flex items-center justify-center gap-3 px-6 text-center text-lg font-medium text-white drop-shadow">
           {landscape ? "Point at a part’s label" : <><RotateIcon />Turn the phone sideways, then point at a label</>}
         </p>
@@ -1188,7 +1194,7 @@ export default function ArView() {
         </div>
       )}
 
-      {/* Panels as a flat stack (oblique plane, edge of screen, or label lost) */}
+      {/* Panels as a flat stack (oblique plane or edge of screen) */}
       {running && open && mode === "flat" && (
         <div
           role="region"
@@ -1207,7 +1213,7 @@ export default function ArView() {
           aria-label={`Ask about ${openState.kind === "ready" ? openState.card.component.name : open.id}`}
           onClick={() => openChat(open.id)}
           style={{ width: MIC_FAB, height: MIC_FAB, transform: `translate3d(${micFab.x}px, ${micFab.y}px, 0)` }}
-          className={`absolute left-0 top-0 z-20 flex cursor-pointer flex-col items-center justify-center rounded-full bg-[#ffcd11] text-black shadow-[0_6px_24px_rgba(0,0,0,0.5)] ring-2 ring-black/40 will-change-transform transition-opacity duration-300 hover:bg-[#f0bf0a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white ${open.lost ? "opacity-70" : "opacity-100"}`}
+          className={`absolute left-0 top-0 z-20 flex cursor-pointer flex-col items-center justify-center rounded-full bg-[#ffcd11] text-black shadow-[0_6px_24px_rgba(0,0,0,0.5)] ring-2 ring-black/40 will-change-transform transition-opacity duration-300 hover:bg-[#f0bf0a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white`}
         >
           <span aria-hidden="true" className="absolute inset-0 animate-ping rounded-full bg-[#ffcd11]/40 [animation-duration:2.4s]" />
           <MicIcon size={22} />
@@ -1334,7 +1340,6 @@ const Panel = memo(function Panel({
   setRef,
   state,
   partId,
-  lost,
   expanded,
   onToggle,
   onClose,
@@ -1346,7 +1351,6 @@ const Panel = memo(function Panel({
   setRef: (el: HTMLDivElement | null) => void;
   state: CardState;
   partId: string;
-  lost: boolean;
   expanded: boolean;
   onToggle: (id: PanelId) => void;
   onClose: () => void;
@@ -1432,7 +1436,7 @@ const Panel = memo(function Panel({
             </div>
             <div className="flex shrink-0 items-start gap-1.5">
               <span className={`mt-1 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${pill[status]}`}>
-                {lost ? "Last seen" : statusWord[status]}
+                {statusWord[status]}
               </span>
               {close}
             </div>
