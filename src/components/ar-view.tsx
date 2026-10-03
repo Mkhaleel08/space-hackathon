@@ -326,6 +326,7 @@ export default function ArView() {
     openRef.current = id;
     setOpenId(id);
   }, []);
+  const closeNode = useCallback(() => openNode(null), [openNode]);
 
   async function start() {
     if (view === "opening" || view === "running") return;
@@ -565,13 +566,14 @@ export default function ArView() {
     flatY = size.h - flatH - GUTTER - 8;
   }
 
-  // Compact nodes for every label that is not open: a chip above the label
-  // (below it when there is no room), nudged apart when two would overlap.
+  // Compact nodes, one per label, while nothing is open: a chip above the
+  // label (below it when there is no room), nudged apart when two would
+  // overlap. While a card is open the other labels step back entirely so the
+  // panels have the screen; the X on the card brings the chips back.
   type Chip = { id: string; left: number; top: number; above: boolean; c: Pt; lost: boolean };
   const chips: Chip[] = [];
-  if (size.w) {
+  if (size.w && !open) {
     for (const a of anchors) {
-      if (a.id === openId) continue;
       const c = center(a.quad);
       const ys = a.quad.map((p) => p.y);
       const minY = Math.min(...ys), maxY = Math.max(...ys);
@@ -603,9 +605,9 @@ export default function ArView() {
   const openLost = open?.lost ?? false;
   const panelNodes = (
     <>
-      <Panel id="head" setRef={bindPanel.head} state={openState} partId={open?.id ?? ""} lost={openLost} expanded={expanded.head} onToggle={togglePanel} />
-      <Panel id="next" setRef={bindPanel.next} state={openState} partId={open?.id ?? ""} lost={openLost} expanded={expanded.next} onToggle={togglePanel} />
-      <Panel id="memory" setRef={bindPanel.memory} state={openState} partId={open?.id ?? ""} lost={openLost} expanded={expanded.memory} onToggle={togglePanel} />
+      <Panel id="head" setRef={bindPanel.head} state={openState} partId={open?.id ?? ""} lost={openLost} expanded={expanded.head} onToggle={togglePanel} onClose={closeNode} />
+      <Panel id="next" setRef={bindPanel.next} state={openState} partId={open?.id ?? ""} lost={openLost} expanded={expanded.next} onToggle={togglePanel} onClose={closeNode} />
+      <Panel id="memory" setRef={bindPanel.memory} state={openState} partId={open?.id ?? ""} lost={openLost} expanded={expanded.memory} onToggle={togglePanel} onClose={closeNode} />
     </>
   );
 
@@ -623,7 +625,7 @@ export default function ArView() {
       {/* Label outlines, a dot on each label, and lines to the nodes */}
       {running && anchors.length > 0 && size.w > 0 && (
         <svg className="pointer-events-none absolute inset-0 h-full w-full" viewBox={`0 0 ${size.w} ${size.h}`} aria-hidden="true">
-          {anchors.map((a) => (
+          {(open ? [open] : anchors).map((a) => (
             <polygon
               key={a.id}
               points={a.quad.map((p) => `${p.x},${p.y}`).join(" ")}
@@ -728,7 +730,7 @@ export default function ArView() {
         <div className="absolute inset-0 z-10" aria-label="Part card" role="region">
           {PANELS.map((id) => (
             <div key={id} className="absolute left-0 top-0 origin-top-left will-change-transform" style={{ width: PANEL_W, transform: panelTransforms[id] }}>
-              <Panel id={id} setRef={bindPanel[id]} state={openState} partId={open.id} lost={openLost} expanded={expanded[id]} onToggle={togglePanel} />
+              <Panel id={id} setRef={bindPanel[id]} state={openState} partId={open.id} lost={openLost} expanded={expanded[id]} onToggle={togglePanel} onClose={closeNode} />
             </div>
           ))}
         </div>
@@ -837,6 +839,7 @@ const Panel = memo(function Panel({
   lost,
   expanded,
   onToggle,
+  onClose,
 }: {
   id: PanelId;
   setRef: (el: HTMLDivElement | null) => void;
@@ -845,6 +848,7 @@ const Panel = memo(function Panel({
   lost: boolean;
   expanded: boolean;
   onToggle: (id: PanelId) => void;
+  onClose: () => void;
 }) {
   // Every panel is a tap target: tap to expand in place, tap again to collapse.
   const tappable = {
@@ -864,6 +868,24 @@ const Panel = memo(function Panel({
       {expanded ? "less ▴" : "more ▾"}
     </span>
   );
+  // X on the head panel: closes the card back to a compact node. Stops the
+  // tap from reaching the panel underneath, which would toggle expansion.
+  const close = (
+    <button
+      type="button"
+      aria-label="Close part card"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
+      onKeyDown={(e) => e.stopPropagation()}
+      className="-mr-1.5 -mt-1.5 flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full text-white/80 hover:bg-white/15 hover:text-white focus-visible:outline-2 focus-visible:outline-white"
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M3 3l10 10M13 3L3 13" />
+      </svg>
+    </button>
+  );
   const href = `/components/${encodeURIComponent(partId)}`;
   const label = (text: string, extra = "") => (
     <p className={`font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60 ${extra}`}>{text}</p>
@@ -873,7 +895,10 @@ const Panel = memo(function Panel({
     if (id !== "head") return <div ref={setRef} className="h-0" aria-hidden="true" />;
     return (
       <div ref={setRef} style={glassStyle} className={`${glass} p-4`} aria-busy={state.kind === "loading"}>
-        {label(state.kind === "loading" ? `Found ${partId}` : partId)}
+        <div className="flex items-start justify-between gap-3">
+          {label(state.kind === "loading" ? `Found ${partId}` : partId)}
+          {close}
+        </div>
         <p className="mt-1 text-lg font-semibold leading-tight">
           {state.kind === "loading" && "Reading the machine’s memory…"}
           {state.kind === "missing" && "Unknown part"}
@@ -901,9 +926,12 @@ const Panel = memo(function Panel({
               <h2 className="mt-0.5 line-clamp-2 text-[19px] font-semibold leading-tight">{card.component.name}</h2>
               <p className="truncate text-xs text-white/70">{card.component.location}</p>
             </div>
-            <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${pill[status]}`}>
-              {lost ? "Last seen" : statusWord[status]}
-            </span>
+            <div className="flex shrink-0 items-start gap-1.5">
+              <span className={`mt-1 rounded-full px-2.5 py-1 text-[11px] font-bold ring-1 ${pill[status]}`}>
+                {lost ? "Last seen" : statusWord[status]}
+              </span>
+              {close}
+            </div>
           </div>
           {card.readings.length > 0 && !expanded && (
             <ul className="mt-2.5 flex items-center gap-1.5 overflow-hidden" aria-label="Readings">
