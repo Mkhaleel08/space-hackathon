@@ -52,10 +52,25 @@ export default function Home() {
                   strokeWidth="1.5"
                   strokeLinejoin="round"
                 >
-                  <path d="M48 68 98 43l89 39-51 29zM48 68v56l88 38 51-26V82M136 111v51M70 79l49 21M70 91l49 21M70 103l49 21M157 110v28M169 104v28" />
-                  <path d="m98 43 1-22 89 38-1 23M99 21l-15 8v21M99 33l73 31M48 99l-16 8v35l52 23 18-9M32 107l52 23v35M48 124l36 16" />
-                  <circle cx="163" cy="83" r="7" />
-                  <path d="M145 64 167 74M52 151v14M65 157v14M136 162v10M179 140v12" />
+                  {/* Hydraulic excavator, right side: tracks, house, cab, boom, stick, bucket */}
+                  <path d="M102 140h112a14 14 0 0 1 0 28H102a14 14 0 0 1 0-28z" />
+                  <circle cx="102" cy="154" r="8" />
+                  <circle cx="214" cy="154" r="8" />
+                  <path d="M124 159a4 4 0 1 0 .01 0M144 159a4 4 0 1 0 .01 0M164 159a4 4 0 1 0 .01 0M184 159a4 4 0 1 0 .01 0" />
+                  <path d="M114 164v4M128 164v4M142 164v4M156 164v4M170 164v4M184 164v4M198 164v4" />
+                  <path d="M136 140v-12h64v12M126 128h84" />
+                  <path d="M118 128V96h104a10 10 0 0 1 10 10v22M196 106h22M196 112h22M196 118h22M206 96v-9M203 87h6" />
+                  <path d="M118 96V80a8 8 0 0 1 8-8h22a6 6 0 0 1 6 6v18M124 78h22v14h-22z" />
+                  <path d="M156 102 108 45 65 67l6 10 33-20 41 55z" />
+                  <path d="M127 67l-26-5-1 7 26 5zM101 66 76 61" />
+                  <path d="M123 119l3-22 7 1-3 22zM128 97l-2-13" />
+                  <path d="M78 61 51 130 41 126 68 57z" />
+                  <path d="M65 79 56 101 50 99 59 77zM53 100l-6 16" />
+                  <path d="M46 128c-14 4-20 20-12 32l10 8 22-4-4-22zM50 167v5M57 166v5M64 164v5" />
+                  <circle cx="150" cy="106" r="3" />
+                  <circle cx="68" cy="72" r="2.5" />
+                  <circle cx="46" cy="128" r="2.5" />
+                  <path d="M20 174h212" strokeDasharray="3 5" />
                 </g>
               </svg>
               <span className={s.scopeLabel}>
